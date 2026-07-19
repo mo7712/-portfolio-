@@ -1,0 +1,6 @@
+{
+  "name": "Manea Graphics",
+  "description": "معرض الأعمال الاحترافي لـ مانع جرافيكس - صانع ومصمم ثلاثي الأبعاد وتصميم الويب والعلامات التجارية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
