@@ -385,6 +385,35 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const dir: Dir = language === 'ar' ? 'rtl' : 'ltr';
 
+  // 1. Initial Data Fetching from Backend Database Files
+  useEffect(() => {
+    fetch('/api/public/data')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          if (data.portfolioItems) {
+            setRawPortfolioItemsState(data.portfolioItems);
+            safeSetItem('manea_portfolio_items', JSON.stringify(data.portfolioItems));
+          }
+          if (data.categories) {
+            setRawCategoriesState(data.categories);
+            safeSetItem('manea_categories', JSON.stringify(data.categories));
+          }
+          if (data.customTranslations) {
+            setCustomTranslationsState(data.customTranslations);
+            safeSetItem('manea_custom_translations', JSON.stringify(data.customTranslations));
+          }
+          if (data.partnerLogos) {
+            setRawPartnerLogosState(data.partnerLogos);
+            safeSetItem('manea_partner_logos', JSON.stringify(data.partnerLogos));
+          }
+        }
+      })
+      .catch(err => {
+        console.warn("Could not load backend data. Falling back to local storage and offline defaults.", err);
+      });
+  }, []);
+
   useEffect(() => {
     safeSetItem('manea_lang', language);
     // Apply direction and language attribute to HTML tag
@@ -405,24 +434,56 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLanguageState(lang);
   };
 
+  // Helper to persist single fields to server
+  const saveToServer = (payload: any) => {
+    const token = sessionStorage.getItem('manea_admin_auth_token');
+    if (!token) return;
+
+    fetch('/api/admin/save-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        token,
+        ...payload
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) {
+        console.error("Failed to sync modification to backend server:", data.error);
+      } else {
+        console.log("Successfully synchronized change with backend persistence storage!");
+      }
+    })
+    .catch(err => {
+      console.error("Network error while syncing change to backend server:", err);
+    });
+  };
+
   const setRawPortfolioItems = (items: PortfolioItem[]) => {
     setRawPortfolioItemsState(items);
     safeSetItem('manea_portfolio_items', JSON.stringify(items));
+    saveToServer({ portfolioItems: items });
   };
 
   const setRawCategories = (cats: CategoryItem[]) => {
     setRawCategoriesState(cats);
     safeSetItem('manea_categories', JSON.stringify(cats));
+    saveToServer({ categories: cats });
   };
 
   const setAllCustomTranslations = (trans: Record<Language, Record<string, string>>) => {
     setCustomTranslationsState(trans);
     safeSetItem('manea_custom_translations', JSON.stringify(trans));
+    saveToServer({ customTranslations: trans });
   };
 
   const setRawPartnerLogos = (logos: string[]) => {
     setRawPartnerLogosState(logos);
     safeSetItem('manea_partner_logos', JSON.stringify(logos));
+    saveToServer({ partnerLogos: logos });
   };
 
   const t = (key: string): string => {

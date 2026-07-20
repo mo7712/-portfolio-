@@ -235,33 +235,171 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     }
   }, [isOpen, rawPartnerLogos]);
 
-  // Form states for Projects
-  const [editingProject, setEditingProject] = useState<PortfolioItem | null>(null);
-  const [isAddingProject, setIsAddingProject] = useState(false);
-  const [projForm, setProjForm] = useState({
-    id: '',
-    titleAr: '',
-    titleEn: '',
-    categoryKey: '',
-    image: '',
-    descriptionAr: '',
-    descriptionEn: '',
-    clientAr: '',
-    clientEn: '',
-    year: '2026',
-    toolsString: '',
-    galleryString: '',
-    videoUrl: ''
+  // Form states for Projects with Auto-save Draft Support
+  const [editingProject, setEditingProject] = useState<PortfolioItem | null>(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_proj_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.editingProject;
+      }
+    } catch (e) {
+      console.error("Error reading project draft from localStorage", e);
+    }
+    return null;
   });
 
-  // Form states for Categories
-  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [catForm, setCatForm] = useState({
-    key: '',
-    labelAr: '',
-    labelEn: ''
+  const [isAddingProject, setIsAddingProject] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_proj_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.isAddingProject;
+      }
+    } catch (e) {
+      console.error("Error reading project draft state", e);
+    }
+    return false;
   });
+
+  const [projForm, setProjForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_proj_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.projForm;
+      }
+    } catch (e) {
+      console.error("Error reading project draft form", e);
+    }
+    return {
+      id: '',
+      titleAr: '',
+      titleEn: '',
+      categoryKey: '',
+      image: '',
+      descriptionAr: '',
+      descriptionEn: '',
+      clientAr: '',
+      clientEn: '',
+      year: '2026',
+      toolsString: '',
+      galleryString: '',
+      videoUrl: ''
+    };
+  });
+
+  const [hasRestoredProjDraft, setHasRestoredProjDraft] = useState(() => {
+    return !!localStorage.getItem('manea_admin_proj_form_draft');
+  });
+
+  // Auto-save project draft effect
+  useEffect(() => {
+    if (isAddingProject || editingProject) {
+      localStorage.setItem('manea_admin_proj_form_draft', JSON.stringify({
+        projForm,
+        editingProject,
+        isAddingProject
+      }));
+    } else {
+      localStorage.removeItem('manea_admin_proj_form_draft');
+    }
+  }, [projForm, editingProject, isAddingProject]);
+
+  // Form states for Categories with Auto-save Draft Support
+  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_cat_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.editingCategory;
+      }
+    } catch (e) {
+      console.error("Error reading category draft from localStorage", e);
+    }
+    return null;
+  });
+
+  const [isAddingCategory, setIsAddingCategory] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_cat_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.isAddingCategory;
+      }
+    } catch (e) {
+      console.error("Error reading category draft state", e);
+    }
+    return false;
+  });
+
+  const [catForm, setCatForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('manea_admin_cat_form_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.catForm;
+      }
+    } catch (e) {
+      console.error("Error reading category draft form", e);
+    }
+    return {
+      key: '',
+      labelAr: '',
+      labelEn: ''
+    };
+  });
+
+  const [hasRestoredCatDraft, setHasRestoredCatDraft] = useState(() => {
+    return !!localStorage.getItem('manea_admin_cat_form_draft');
+  });
+
+  // Auto-save category draft effect
+  useEffect(() => {
+    if (isAddingCategory || editingCategory) {
+      localStorage.setItem('manea_admin_cat_form_draft', JSON.stringify({
+        catForm,
+        editingCategory,
+        isAddingCategory
+      }));
+    } else {
+      localStorage.removeItem('manea_admin_cat_form_draft');
+    }
+  }, [catForm, editingCategory, isAddingCategory]);
+
+  const handleClearProjDraft = () => {
+    localStorage.removeItem('manea_admin_proj_form_draft');
+    setHasRestoredProjDraft(false);
+    setIsAddingProject(false);
+    setEditingProject(null);
+    setProjForm({
+      id: '',
+      titleAr: '',
+      titleEn: '',
+      categoryKey: rawCategories[0]?.key || '3d',
+      image: '',
+      descriptionAr: '',
+      descriptionEn: '',
+      clientAr: '',
+      clientEn: '',
+      year: '2026',
+      toolsString: '',
+      galleryString: '',
+      videoUrl: ''
+    });
+  };
+
+  const handleClearCatDraft = () => {
+    localStorage.removeItem('manea_admin_cat_form_draft');
+    setHasRestoredCatDraft(false);
+    setIsAddingCategory(false);
+    setEditingCategory(null);
+    setCatForm({
+      key: '',
+      labelAr: '',
+      labelEn: ''
+    });
+  };
 
   // Search filter for project management
   const [projectSearch, setProjectSearch] = useState('');
@@ -657,6 +795,8 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     setRawPortfolioItems(newItems);
     setEditingProject(null);
     setIsAddingProject(false);
+    setHasRestoredProjDraft(false);
+    localStorage.removeItem('manea_admin_proj_form_draft');
   };
 
   const handleDeleteProject = (id: string) => {
@@ -730,6 +870,8 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     setRawCategories(newCats);
     setIsAddingCategory(false);
     setEditingCategory(null);
+    setHasRestoredCatDraft(false);
+    localStorage.removeItem('manea_admin_cat_form_draft');
   };
 
   const handleDeleteCategory = (key: string) => {
@@ -1261,12 +1403,34 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           </h4>
                           <button
                             type="button"
-                            onClick={() => { setIsAddingProject(false); setEditingProject(null); }}
+                            onClick={() => { setIsAddingProject(false); setEditingProject(null); setHasRestoredProjDraft(false); }}
                             className="text-xs text-gray-400 hover:text-white flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
                           >
                             {language === 'ar' ? 'إلغاء التعديل' : 'Cancel'}
                           </button>
                         </div>
+
+                        {hasRestoredProjDraft && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 p-3 rounded-xl flex items-center justify-between gap-4"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                              {language === 'ar' 
+                                ? 'تمت استعادة مسودة غير محفوظة تلقائياً لتجنب فقدان البيانات!' 
+                                : 'An unsaved draft has been automatically restored to prevent data loss!'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleClearProjDraft}
+                              className="underline font-bold text-amber-500 hover:text-amber-400 cursor-pointer whitespace-nowrap"
+                            >
+                              {language === 'ar' ? 'حذف المسودة والبدء من جديد' : 'Discard & Reset'}
+                            </button>
+                          </motion.div>
+                        )}
 
                         {/* Form grid layout */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1474,21 +1638,27 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                         </div>
 
                         {/* Submit Actions */}
-                        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                          <button
-                            type="button"
-                            onClick={() => { setIsAddingProject(false); setEditingProject(null); }}
-                            className="px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-gray-300 text-xs font-bold cursor-pointer transition-all duration-200"
-                          >
-                            {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-6 py-2.5 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-600 hover:to-[#F7941D] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all duration-200"
-                          >
-                            <Save size={14} className="inline-block mr-1.5 align-middle" />
-                            <span className="align-middle">{language === 'ar' ? 'حفظ ونشر المشروع الآن' : 'Publish & Save Project'}</span>
-                          </button>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-2 text-emerald-400 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>{language === 'ar' ? 'تم الحفظ تلقائياً في المتصفح' : 'Draft auto-saved to browser'}</span>
+                          </div>
+                          <div className="flex justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => { setIsAddingProject(false); setEditingProject(null); setHasRestoredProjDraft(false); }}
+                              className="px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-gray-300 text-xs font-bold cursor-pointer transition-all duration-200"
+                            >
+                              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-6 py-2.5 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-600 hover:to-[#F7941D] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all duration-200"
+                            >
+                              <Save size={14} className="inline-block mr-1.5 align-middle" />
+                              <span className="align-middle">{language === 'ar' ? 'حفظ ونشر المشروع الآن' : 'Publish & Save Project'}</span>
+                            </button>
+                          </div>
                         </div>
                       </motion.form>
                     ) : (
@@ -1641,6 +1811,28 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                             : (language === 'ar' ? 'إضافة قسم تصفية جديد بالكامل' : 'Create a New Portfolio Category')}
                         </h4>
 
+                        {hasRestoredCatDraft && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 p-3 rounded-xl flex items-center justify-between gap-4"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                              {language === 'ar' 
+                                ? 'تمت استعادة مسودة قسم غير محفوظة تلقائياً!' 
+                                : 'An unsaved category draft has been automatically restored!'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleClearCatDraft}
+                              className="underline font-bold text-amber-500 hover:text-amber-400 cursor-pointer whitespace-nowrap"
+                            >
+                              {language === 'ar' ? 'حذف المسودة والبدء من جديد' : 'Discard & Reset'}
+                            </button>
+                          </motion.div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           {/* Key */}
                           <div className="space-y-1">
@@ -1692,20 +1884,26 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                          <button
-                            type="button"
-                            onClick={() => { setIsAddingCategory(false); setEditingCategory(null); }}
-                            className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all cursor-pointer"
-                          >
-                            {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 bg-[#F7941D] hover:bg-amber-600 rounded-xl text-xs font-bold text-white transition-all cursor-pointer"
-                          >
-                            {language === 'ar' ? 'حفظ القسم الجديد' : 'Save Category'}
-                          </button>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-2 text-emerald-400 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>{language === 'ar' ? 'تم الحفظ تلقائياً في المتصفح' : 'Draft auto-saved to browser'}</span>
+                          </div>
+                          <div className="flex justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => { setIsAddingCategory(false); setEditingCategory(null); setHasRestoredCatDraft(false); }}
+                              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all cursor-pointer"
+                            >
+                              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-5 py-2 bg-[#F7941D] hover:bg-amber-600 rounded-xl text-xs font-bold text-white transition-all cursor-pointer"
+                            >
+                              {language === 'ar' ? 'حفظ القسم الجديد' : 'Save Category'}
+                            </button>
+                          </div>
                         </div>
                       </motion.form>
                     )}

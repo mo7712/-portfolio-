@@ -2,10 +2,289 @@ import express from "express";
 import path from "path";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import { portfolioItems } from "./src/portfolioData";
+
+// Database imports with explicit ESM extension
+import { db } from "./src/db/index.ts";
+import { portfolioItemsTable, categoriesTable, partnerLogosTable, customTranslationsTable } from "./src/db/schema.ts";
 
 // Load environment variables
 dotenv.config();
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const PORTFOLIO_PATH = path.join(DATA_DIR, "portfolio_items.json");
+const CATEGORIES_PATH = path.join(DATA_DIR, "categories.json");
+const TRANSLATIONS_PATH = path.join(DATA_DIR, "custom_translations.json");
+const PARTNERS_PATH = path.join(DATA_DIR, "partner_logos.json");
+
+// Ensure data directory exists and seed default data files if they do not exist (fallback/local backup)
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(PORTFOLIO_PATH)) {
+    fs.writeFileSync(PORTFOLIO_PATH, JSON.stringify(portfolioItems, null, 2), "utf-8");
+  }
+
+  if (!fs.existsSync(CATEGORIES_PATH)) {
+    const defaultCategories = [
+      { key: '3d', labelAr: 'تصميم ثلاثي الأبعاد 3D', labelEn: '3D Design' },
+      { key: 'branding', labelAr: 'هويات بصرية', labelEn: 'Brand Identity' },
+      { key: 'web', labelAr: 'تصميم الويب وUI/UX', labelEn: 'Web & UI/UX Design' },
+      { key: 'motion', labelAr: 'موشن جرافيكس', labelEn: 'Motion Graphics' }
+    ];
+    fs.writeFileSync(CATEGORIES_PATH, JSON.stringify(defaultCategories, null, 2), "utf-8");
+  }
+
+  if (!fs.existsSync(TRANSLATIONS_PATH)) {
+    fs.writeFileSync(TRANSLATIONS_PATH, JSON.stringify({ ar: {}, en: {} }, null, 2), "utf-8");
+  }
+
+  if (!fs.existsSync(PARTNERS_PATH)) {
+    const defaultPartnerLogos = [
+      "https://i.ibb.co/wh7dmm4s/2.png",
+      "https://i.ibb.co/Q3CbVBsG/2025.png",
+      "https://i.ibb.co/q3cWB45P/image.png",
+      "https://i.ibb.co/mCH4bvYb/image.png",
+      "https://i.ibb.co/gMSZKtTZ/2.png",
+      "https://i.ibb.co/6cktLXhn/image.png",
+      "https://i.ibb.co/nqXrLLhF/image.png"
+    ];
+    fs.writeFileSync(PARTNERS_PATH, JSON.stringify(defaultPartnerLogos, null, 2), "utf-8");
+  }
+  console.log("[SERVER] Seeded persistent local database files successfully.");
+} catch (seedErr) {
+  console.error("[SERVER] Failed to seed persistent files:", seedErr);
+}
+
+// Database Seeding and Migration Helper
+async function initAndMigrateDatabase() {
+  try {
+    console.log("[DATABASE] Checking database connection and initializing data...");
+
+    // Query categories count to verify database connection
+    const existingCats = await db.select().from(categoriesTable);
+    
+    if (existingCats.length === 0) {
+      console.log("[DATABASE] Database is empty. Migrating/Seeding from local JSON files...");
+
+      // A. Migrate/Seed Categories
+      let initialCategories = [
+        { key: '3d', labelAr: 'تصميم ثلاثي الأبعاد 3D', labelEn: '3D Design' },
+        { key: 'branding', labelAr: 'هويات بصرية', labelEn: 'Brand Identity' },
+        { key: 'web', labelAr: 'تصميم الويب وUI/UX', labelEn: 'Web & UI/UX Design' },
+        { key: 'motion', labelAr: 'موشن جرافيكس', labelEn: 'Motion Graphics' }
+      ];
+      if (fs.existsSync(CATEGORIES_PATH)) {
+        try {
+          initialCategories = JSON.parse(fs.readFileSync(CATEGORIES_PATH, "utf-8"));
+        } catch (e) {
+          console.error("[DATABASE] Error reading CATEGORIES_PATH", e);
+        }
+      }
+      for (const cat of initialCategories) {
+        await db.insert(categoriesTable).values({
+          key: cat.key,
+          labelAr: cat.labelAr,
+          labelEn: cat.labelEn
+        }).onConflictDoNothing();
+      }
+      console.log(`[DATABASE] Seeded ${initialCategories.length} categories.`);
+
+      // B. Migrate/Seed Portfolio Items
+      let initialPortfolio: any[] = portfolioItems;
+      if (fs.existsSync(PORTFOLIO_PATH)) {
+        try {
+          initialPortfolio = JSON.parse(fs.readFileSync(PORTFOLIO_PATH, "utf-8"));
+        } catch (e) {
+          console.error("[DATABASE] Error reading PORTFOLIO_PATH", e);
+        }
+      }
+      for (const item of initialPortfolio) {
+        await db.insert(portfolioItemsTable).values({
+          id: item.id,
+          title: item.title,
+          titleEn: item.titleEn || "",
+          category: item.category,
+          categoryEn: item.categoryEn || "",
+          categoryKey: item.categoryKey,
+          image: item.image,
+          description: item.description,
+          descriptionEn: item.descriptionEn || "",
+          client: item.client || "شخصي",
+          clientEn: item.clientEn || "Personal",
+          year: item.year || "2026",
+          tools: item.tools || [],
+          gallery: item.gallery || [],
+          videoUrl: item.videoUrl || ""
+        }).onConflictDoNothing();
+      }
+      console.log(`[DATABASE] Seeded ${initialPortfolio.length} portfolio items.`);
+
+      // C. Migrate/Seed Partner Logos
+      let initialPartners = [
+        "https://i.ibb.co/wh7dmm4s/2.png",
+        "https://i.ibb.co/Q3CbVBsG/2025.png",
+        "https://i.ibb.co/q3cWB45P/image.png",
+        "https://i.ibb.co/mCH4bvYb/image.png",
+        "https://i.ibb.co/gMSZKtTZ/2.png",
+        "https://i.ibb.co/6cktLXhn/image.png",
+        "https://i.ibb.co/nqXrLLhF/image.png"
+      ];
+      if (fs.existsSync(PARTNERS_PATH)) {
+        try {
+          initialPartners = JSON.parse(fs.readFileSync(PARTNERS_PATH, "utf-8"));
+        } catch (e) {
+          console.error("[DATABASE] Error reading PARTNERS_PATH", e);
+        }
+      }
+      for (let i = 0; i < initialPartners.length; i++) {
+        await db.insert(partnerLogosTable).values({
+          url: initialPartners[i],
+          sortOrder: i
+        });
+      }
+      console.log(`[DATABASE] Seeded ${initialPartners.length} partner logos.`);
+
+      // D. Migrate/Seed Translations
+      let initialTranslations: any = { ar: {}, en: {} };
+      if (fs.existsSync(TRANSLATIONS_PATH)) {
+        try {
+          initialTranslations = JSON.parse(fs.readFileSync(TRANSLATIONS_PATH, "utf-8"));
+        } catch (e) {
+          console.error("[DATABASE] Error reading TRANSLATIONS_PATH", e);
+        }
+      }
+      for (const lang of ['ar', 'en']) {
+        const transObj = initialTranslations[lang] || {};
+        for (const [key, value] of Object.entries(transObj)) {
+          await db.insert(customTranslationsTable).values({
+            lang,
+            key,
+            value: value as string
+          }).onConflictDoNothing();
+        }
+      }
+      console.log("[DATABASE] Seeded translations.");
+    } else {
+      console.log("[DATABASE] Connection verified. Schema already seeded.");
+    }
+  } catch (err) {
+    console.error("[DATABASE] Error connecting to PostgreSQL / running database migration:", err);
+  }
+}
+
+// --- SAFE DATABASE HELPERS ---
+
+async function fetchPublicData() {
+  try {
+    const portfolio = await db.select().from(portfolioItemsTable);
+    const categories = await db.select().from(categoriesTable);
+    
+    const partnerLogosRows = await db.select().from(partnerLogosTable).orderBy(partnerLogosTable.sortOrder);
+    const partnerLogos = partnerLogosRows.map(row => row.url);
+
+    const translationsRows = await db.select().from(customTranslationsTable);
+    const customTranslations: Record<string, Record<string, string>> = { ar: {}, en: {} };
+    for (const row of translationsRows) {
+      if (!customTranslations[row.lang]) {
+        customTranslations[row.lang] = {};
+      }
+      customTranslations[row.lang][row.key] = row.value;
+    }
+
+    return {
+      portfolioItems: portfolio,
+      categories,
+      customTranslations,
+      partnerLogos
+    };
+  } catch (error) {
+    console.error("[DATABASE ERROR] Failed to fetch public data:", error);
+    throw new Error("Unable to read database. Please try again later.", { cause: error });
+  }
+}
+
+async function saveAdminData(data: {
+  portfolioItems?: any[];
+  categories?: any[];
+  customTranslations?: Record<string, Record<string, string>>;
+  partnerLogos?: string[];
+}) {
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Save Portfolio Items
+      if (data.portfolioItems) {
+        await tx.delete(portfolioItemsTable);
+        for (const item of data.portfolioItems) {
+          await tx.insert(portfolioItemsTable).values({
+            id: item.id,
+            title: item.title,
+            titleEn: item.titleEn || "",
+            category: item.category,
+            categoryEn: item.categoryEn || "",
+            categoryKey: item.categoryKey,
+            image: item.image,
+            description: item.description,
+            descriptionEn: item.descriptionEn || "",
+            client: item.client || "شخصي",
+            clientEn: item.clientEn || "Personal",
+            year: item.year || "2026",
+            tools: item.tools || [],
+            gallery: item.gallery || [],
+            videoUrl: item.videoUrl || ""
+          });
+        }
+      }
+
+      // 2. Save Categories
+      if (data.categories) {
+        await tx.delete(categoriesTable);
+        for (const cat of data.categories) {
+          await tx.insert(categoriesTable).values({
+            key: cat.key,
+            labelAr: cat.labelAr,
+            labelEn: cat.labelEn
+          });
+        }
+      }
+
+      // 3. Save Partner Logos
+      if (data.partnerLogos) {
+        await tx.delete(partnerLogosTable);
+        for (let i = 0; i < data.partnerLogos.length; i++) {
+          await tx.insert(partnerLogosTable).values({
+            url: data.partnerLogos[i],
+            sortOrder: i
+          });
+        }
+      }
+
+      // 4. Save Custom Translations
+      if (data.customTranslations) {
+        await tx.delete(customTranslationsTable);
+        for (const lang of ['ar', 'en']) {
+          const transObj = data.customTranslations[lang] || {};
+          for (const [key, value] of Object.entries(transObj)) {
+            await tx.insert(customTranslationsTable).values({
+              lang,
+              key,
+              value: value as string
+            });
+          }
+        }
+      }
+    });
+
+    console.log("[DATABASE] Admin successfully updated PostgreSQL data.");
+  } catch (error) {
+    console.error("[DATABASE ERROR] Failed to save admin data:", error);
+    throw new Error("Unable to write data to database. Transaction aborted.", { cause: error });
+  }
+}
 
 const app = express();
 const PORT = 3000;
@@ -40,6 +319,81 @@ function maskEmail(email: string) {
 }
 
 // --- SECURE API ENDPOINTS ---
+
+// Authorization Helper
+function checkAuthorized(req: express.Request): boolean {
+  const token = (req.headers.authorization || "").replace("Bearer ", "") || (req.body && req.body.token) || "";
+  if (!token) return false;
+  const expiry = activeSessions.get(token);
+  return !!(expiry && expiry > Date.now());
+}
+
+// 0. Public Data Endpoint (loads real-time system state from SQL DB with file fallback)
+app.get("/api/public/data", async (req, res) => {
+  try {
+    const data = await fetchPublicData();
+    return res.json({
+      success: true,
+      ...data
+    });
+  } catch (error: any) {
+    console.error("[SERVER] Database error, falling back to local files:", error);
+    try {
+      const portfolio = JSON.parse(fs.readFileSync(PORTFOLIO_PATH, "utf-8"));
+      const categories = JSON.parse(fs.readFileSync(CATEGORIES_PATH, "utf-8"));
+      const translations = JSON.parse(fs.readFileSync(TRANSLATIONS_PATH, "utf-8"));
+      const partners = JSON.parse(fs.readFileSync(PARTNERS_PATH, "utf-8"));
+
+      return res.json({
+        success: true,
+        portfolioItems: portfolio,
+        categories,
+        customTranslations: translations,
+        partnerLogos: partners
+      });
+    } catch (fsError) {
+      return res.status(500).json({ success: false, error: "Failed to read database or local storage" });
+    }
+  }
+});
+
+// 0.5. Save System Data Endpoint (Authenticated Admin only - writes to SQL and local fallback cache)
+app.post("/api/admin/save-data", async (req, res) => {
+  if (!checkAuthorized(req)) {
+    return res.status(401).json({ success: false, error: "Unauthorized session or expired token" });
+  }
+
+  const { portfolioItems, categories, customTranslations, partnerLogos } = req.body;
+
+  try {
+    // 1. Write to PostgreSQL Database
+    await saveAdminData({ portfolioItems, categories, customTranslations, partnerLogos });
+
+    // 2. Also write to local files as a secondary local cache/backup
+    try {
+      if (portfolioItems) {
+        fs.writeFileSync(PORTFOLIO_PATH, JSON.stringify(portfolioItems, null, 2), "utf-8");
+      }
+      if (categories) {
+        fs.writeFileSync(CATEGORIES_PATH, JSON.stringify(categories, null, 2), "utf-8");
+      }
+      if (customTranslations) {
+        fs.writeFileSync(TRANSLATIONS_PATH, JSON.stringify(customTranslations, null, 2), "utf-8");
+      }
+      if (partnerLogos) {
+        fs.writeFileSync(PARTNERS_PATH, JSON.stringify(partnerLogos, null, 2), "utf-8");
+      }
+    } catch (fsErr) {
+      console.warn("[SERVER] Failed to write local cache files, but database save was successful:", fsErr);
+    }
+
+    return res.json({ success: true, message: "تم حفظ التعديلات بنجاح ونشرها على قاعدة البيانات والموقع في كل الاستضافات!" });
+  } catch (error: any) {
+    console.error("[SERVER] Error saving to SQL database:", error);
+    return res.status(500).json({ success: false, error: "فشل حفظ التعديلات في قاعدة البيانات: " + error.message });
+  }
+});
+
 
 // 1. Admin Login
 app.post("/api/admin/login", (req, res) => {
@@ -189,6 +543,9 @@ app.post("/api/admin/reset-pin", (req, res) => {
 // --- VITE MIDDLEWARE & STATIC SERVING ---
 
 async function startServer() {
+  // Initialize and migrate database first
+  await initAndMigrateDatabase();
+
   if (process.env.NODE_ENV !== "production") {
     // Mount Vite middleware in development
     const vite = await createViteServer({

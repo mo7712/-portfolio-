@@ -988,7 +988,7 @@ export default function App() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20 relative">
-          {translatedPortfolioItems.slice(0, 3).map((item, i, arr) => {
+          {translatedPortfolioItems.slice(0, 4).map((item, i, arr) => {
             const num = `0${i + 1}`;
             const targetScale = 1 - (arr.length - 1 - i) * 0.03;
             const galleryList = item.gallery && item.gallery.length > 0 ? item.gallery.filter(Boolean) : [];
