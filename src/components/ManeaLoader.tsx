@@ -11,79 +11,79 @@ const letters = [
     // M
     d: "M227.6,468.81c0-5.36,0.05-12.96,0.15-17.2h-0.19c-0.76,6.93-2.38,20.95-3.38,28.23h-5.96 c-0.81-7.57-2.38-21.85-3.15-28.32h-0.22c0.09,4.06,0.27,11.57,0.27,17.54v10.78h-6.38v-34.62h10.08 c0.95,6.58,2.02,15.22,2.44,19.91h0.15c0.56-5.01,1.78-12.29,2.9-19.91h10.05v34.62h-6.77v-11.03H227.6z",
     color: "#FFFFFF",
-    delay: 1.8,
+    delay: 0.6,
   },
   {
     // A
     d: "M251.14,471.6l-0.9,8.24h-7.16l5.17-34.62h10.48l5.29,34.62h-7.31l-1.01-8.24H251.14z M255.1,465.73 c-0.52-4.43-1.25-11.17-1.59-14.48h-0.28c-0.13,2.41-0.99,10.2-1.48,14.48H255.1z",
     color: "#FFFFFF",
-    delay: 1.84,
+    delay: 0.64,
   },
   {
     // N
     d: "M272.73,479.84v-34.62h7.77c1.16,4.22,4.82,19.9,5.11,21.42h0.17c-0.39-4.61-0.64-10.9-0.64-15.74v-5.69h6.52 v34.62h-7.85c-0.76-3.29-4.75-21.21-4.99-22.31h-0.19c0.27,4.08,0.49,10.96,0.49,16.4v5.91L272.73,479.84L272.73,479.84z",
     color: "#FFFFFF",
-    delay: 1.88,
+    delay: 0.68,
   },
   {
     // E
     d: "M316.55,464.55h-7.53v9.44h8.83l-0.84,5.85h-15.02v-34.62h14.97v5.89h-7.93v7.59h7.53v5.85H316.55z",
     color: "#FFFFFF",
-    delay: 1.92,
+    delay: 0.72,
   },
   {
     // A
     d: "M334.41,471.6l-0.9,8.24h-7.16l5.17-34.62H342l5.29,34.62h-7.31l-1.01-8.24H334.41z M338.37,465.73 c-0.52-4.43-1.25-11.17-1.59-14.48h-0.28c-0.13,2.41-0.99,10.2-1.48,14.48H338.37z",
     color: "#FFFFFF",
-    delay: 1.96,
+    delay: 0.76,
   },
   {
     // G
     d: "M403.83,479.84h-5.28c-0.16-0.6-0.27-1.84-0.33-2.56c-1.16,2.43-3.5,3.08-5.76,3.08 c-5.69,0-7.28-4.01-7.28-9.67V454.4c0-5.31,2.32-9.7,9.29-9.7c8.41,0,9.26,5.8,9.26,9.29v1.56h-7.07v-1.91 c0-1.68-0.22-3.23-2.17-3.23c-1.61,0-2.2,1.12-2.2,3.37v17.75c0,2.36,0.8,3.22,2.2,3.22c1.71,0,2.29-1.26,2.29-4.11v-4.96h-2.42 v-5.62h9.47V479.84z",
     color: "#F7941D",
-    delay: 2.0,
+    delay: 0.8,
   },
   {
     // R
     d: "M421.34,464.79v15.05h-7.02v-34.62h9.12c6.12,0,9.15,2.55,9.15,8.6v1.25c0,4.93-2.08,6.4-3.65,7.1 c2.27,1.04,3.34,2.62,3.34,7.45c0,3.34-0.05,8.4,0.25,10.22h-6.8c-0.45-1.57-0.42-6.07-0.42-10.49c0-3.89-0.47-4.56-3.15-4.56 L421.34,464.79L421.34,464.79z M421.36,459.55h0.87c2.35,0,3.3-0.7,3.3-3.92v-1.67c0-2.32-0.49-3.48-3.08-3.48h-1.1v9.07H421.36z",
     color: "#F7941D",
-    delay: 2.04,
+    delay: 0.84,
   },
   {
     // A
     d: "M449.26,471.6l-0.9,8.24h-7.16l5.17-34.62h10.48l5.29,34.62h-7.31l-1.01-8.24H449.26z M453.22,465.73 c-0.52-4.43-1.25-11.17-1.59-14.48h-0.28c-0.13,2.41-0.99,10.2-1.48,14.48H453.22z",
     color: "#F7941D",
-    delay: 2.08,
+    delay: 0.88,
   },
   {
     // P
     d: "M470.85,445.22h9.37c6.07,0,9.08,3.04,9.08,9.17v2.11c0,6.06-2.42,9.72-9.35,9.72h-2.06v13.61h-7.04 L470.85,445.22L470.85,445.22z M477.89,460.84h1.14c2.67,0,3.23-1.42,3.23-4.3v-2.39c0-2.24-0.55-3.68-2.89-3.68h-1.47v10.37 H477.89z",
     color: "#F7941D",
-    delay: 2.12,
+    delay: 0.92,
   },
   {
     // H
     d: "M497.9,445.22h7.04v13.32h4.58v-13.32h7.07v34.62h-7.07v-15.42h-4.58v15.42h-7.04L497.9,445.22L497.9,445.22z",
     color: "#F7941D",
-    delay: 2.16,
+    delay: 0.96,
   },
   {
     // I
     d: "M533.95,445.22v34.62h-7.02v-34.62H533.95z",
     color: "#F7941D",
-    delay: 2.2,
+    delay: 1.0,
   },
   {
     // C
     d: "M562.11,468.54v1.88c0,4.37-0.85,9.94-9.22,9.94c-6.19,0-8.87-3.12-8.87-9.49V453.9 c0-6.02,3.17-9.19,9.02-9.19c7.72,0,8.97,4.81,8.97,9.34v2.17h-7.07v-2.95c0-1.91-0.43-2.87-1.9-2.87c-1.45,0-1.91,0.91-1.91,2.87 v18.31c0,1.85,0.33,3.11,1.91,3.11c1.52,0,1.97-1.06,1.97-3.26v-2.88L562.11,468.54L562.11,468.54z",
     color: "#F7941D",
-    delay: 2.24,
+    delay: 1.04,
   },
   {
     // S
     d: "M577.87,469.17v2.4c0,2.28,0.6,3.33,2.2,3.33c1.62,0,2-1.57,2-3.2c0-3.27-0.65-4.21-4.38-7.17 c-4.11-3.3-6.23-5.26-6.23-10.36c0-4.95,1.73-9.5,8.65-9.5c7.35,0,8.43,4.75,8.43,8.71v1.99h-6.63v-2.07 c0-2.1-0.36-3.14-1.75-3.14c-1.3,0-1.72,1.06-1.72,3.02c0,2.08,0.4,3.11,3.42,5.35c5.37,4,7.3,6.25,7.3,11.95 c0,5.42-1.96,9.89-9.21,9.89c-6.97,0-8.96-3.98-8.96-9.11v-2.08L577.87,469.17L577.87,469.17z",
     color: "#F7941D",
-    delay: 2.28,
+    delay: 1.08,
   }
 ];
 
@@ -92,22 +92,38 @@ export default function ManeaLoader({ onComplete }: ManeaLoaderProps) {
   const [showServiceTitles, setShowServiceTitles] = useState(false);
   const [isPortalTriggered, setIsPortalTriggered] = useState(false);
 
-  // Precision orchestrated timing coordinator
+  // Fast-track loader for returning sessions or initial visit optimization
   useEffect(() => {
-    // 1. Show the luxury service titles as soon as the logo letters finish drawing (2500ms)
+    const isAlreadyLoaded = typeof window !== 'undefined' && sessionStorage.getItem('manea_loaded');
+    
+    if (isAlreadyLoaded) {
+      setShowServiceTitles(true);
+      setIsPortalTriggered(true);
+      const quickTimeout = setTimeout(() => {
+        onComplete();
+      }, 500);
+      return () => clearTimeout(quickTimeout);
+    }
+
+    // 1. Show service titles (1000ms)
     const serviceTitlesTimeout = setTimeout(() => {
       setShowServiceTitles(true);
-    }, 2500);
+    }, 1000);
 
-    // 2. Trigger the high-precision geometric portal transition at 4300ms
+    // 2. Trigger portal transition at 1700ms
     const portalTimeout = setTimeout(() => {
       setIsPortalTriggered(true);
-    }, 4300);
+    }, 1700);
 
-    // 3. Complete transition at 5500ms (giving 1200ms of flawless vortex collapse & expansion)
+    // 3. Complete transition at 2400ms (fast & punchy entrance)
     const completeTimeout = setTimeout(() => {
+      try {
+        sessionStorage.setItem('manea_loaded', 'true');
+      } catch (e) {
+        // Ignore quota/sandbox storage exceptions
+      }
       onComplete();
-    }, 5500);
+    }, 2400);
 
     return () => {
       clearTimeout(serviceTitlesTimeout);

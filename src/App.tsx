@@ -1,13 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'motion/react';
 import Lenis from 'lenis';
-import { Instagram, Facebook, MessageCircle, Phone, Mail, MapPin, Megaphone, Box, Sparkles, Award, Share2, Video, Globe, Brain, Target, PenTool, Palette, Grid, Compass, Ruler, Layers } from 'lucide-react';
+import { Instagram, Facebook, MessageCircle, Phone, Mail, MapPin, Megaphone, Box, Sparkles, Award, Share2, Video, Globe, Brain, Target, PenTool, Palette, Grid, Compass, Ruler, Layers, Menu, X, Home, User, Briefcase, Folder, Play, Pause } from 'lucide-react';
 import PortfolioGallery from './components/PortfolioGallery';
+import NotFound from './components/NotFound';
 import ManeaLoader from './components/ManeaLoader';
 import ContactForm from './components/ContactForm';
 import ServicesPinnedSection from './components/ServicesPinned';
-import ReadingProgress from './components/ReadingProgress';
 import AdminPanel from './components/AdminPanel';
+import { LazyImage, LazyVideo, LazyMedia } from './components/LazyMedia';
 import { useLanguage } from './context/LanguageContext';
 
 // --- BRAND IDENTITY COMPONENTS ---
@@ -15,10 +16,12 @@ import { useLanguage } from './context/LanguageContext';
 interface MonaLogoProps {
   size?: number;
   className?: string;
+  id?: string;
 }
 
-export const MonaLogo = ({ size = 240, className = "" }: MonaLogoProps) => (
+export const MonaLogo = ({ size = 240, className = "", id }: MonaLogoProps) => (
   <svg 
+    id={id}
     xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 708.66 708.66" 
     width={size} 
@@ -105,65 +108,64 @@ const isVideoUrl = (url: string | undefined): boolean => {
 };
 
 const renderMotionMedia = (url: string, delay: number) => {
-  const isVideo = isVideoUrl(url);
-  const commonProps = {
-    className: "w-full h-full object-cover",
-    initial: { scale: 1.15, opacity: 0, y: 30 },
-    whileInView: { scale: 1, opacity: 1, y: 0 },
-    viewport: { once: true, amount: 0.1 },
-    transition: { duration: 0.85, delay, ease: [0.16, 1, 0.3, 1] },
-    whileHover: { scale: 1.05 }
-  };
-
-  if (isVideo) {
-    return (
-      <motion.video
-        src={url}
-        autoPlay
-        loop
-        muted
-        playsInline
-        referrerPolicy="no-referrer"
-        {...commonProps}
-      />
-    );
-  }
-
   return (
-    <motion.img
+    <LazyMedia
       src={url}
-      alt=""
-      referrerPolicy="no-referrer"
-      {...commonProps}
+      className="w-full h-full object-cover"
+      placeholderClassName="w-full h-full"
+      rootMargin="300px"
     />
   );
 };
 
-const HeroWavyBackground = () => {
+const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolean }) => {
   const { t } = useLanguage();
-  const videoUrl = t('hero.bgVideoUrl');
+  const videoUrl = t('hero.bgVideoUrl') || 'https://i.ibb.co/v61V8K48/manea-hero-1.gif';
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isMediaPlaying) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isMediaPlaying]);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none bg-[#110724]">
-      {/* Subtle looping 3D showreel video or ambient image/gif */}
+      {/* Continuous lightweight ambient looping background video / GIF */}
       {videoUrl && (
         isVideoUrl(videoUrl) ? (
           <video
+            ref={videoRef}
             src={videoUrl}
-            autoPlay
+            autoPlay={isMediaPlaying}
             loop
             muted
             playsInline
-            className="absolute inset-0 w-full h-full object-cover opacity-35 mix-blend-screen"
-            style={{ filter: "brightness(0.85) contrast(1.1) saturate(1.15)" }}
+            aria-hidden="true"
+            onPlay={(e) => {
+              if (!isMediaPlaying) e.currentTarget.pause();
+            }}
+            className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
+              isMediaPlaying ? 'opacity-40' : 'opacity-0'
+            }`}
+            style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
           />
         ) : (
           <img
             src={videoUrl}
             alt=""
+            loading="eager"
+            decoding="async"
+            aria-hidden="true"
             referrerPolicy="no-referrer"
-            className="absolute inset-0 w-full h-full object-cover opacity-35 mix-blend-screen"
-            style={{ filter: "brightness(0.85) contrast(1.1) saturate(1.15)" }}
+            className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
+              isMediaPlaying ? 'opacity-45' : 'opacity-0'
+            }`}
+            style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
           />
         )
       )}
@@ -363,6 +365,71 @@ const CinematicTitle = ({ text }: { text: string; key?: string }) => {
   );
 };
 
+interface BlurInTextProps {
+  text: string;
+  className?: string;
+  delay?: number;
+  key?: React.Key;
+}
+
+const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => {
+  const lines = text.split('\n');
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.045,
+        delayChildren: delay,
+      },
+    },
+  };
+
+  const wordVariants = {
+    hidden: { 
+      opacity: 0,
+      filter: "blur(12px)",
+      y: 16,
+      scale: 0.94,
+    },
+    visible: {
+      opacity: 1,
+      filter: "blur(0px)",
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.75,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+  };
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "0px" }}
+      className={className}
+    >
+      {lines.map((line, lineIdx) => (
+        <span key={lineIdx} className="block whitespace-nowrap">
+          {line.split(' ').map((word, wordIdx) => (
+            <motion.span
+              key={`${lineIdx}-${wordIdx}`}
+              variants={wordVariants}
+              className="inline-block me-[0.25em] py-0.5"
+            >
+              {word}
+            </motion.span>
+          ))}
+        </span>
+      ))}
+    </motion.div>
+  );
+};
+
 interface MagnetProps {
   children: React.ReactNode;
   padding?: number;
@@ -538,9 +605,74 @@ export default function App() {
   const { language, setLanguage, t, dir, translatedPortfolioItems, rawPartnerLogos } = useLanguage();
   const partnerLogos = rawPartnerLogos;
   const [scrollOffset, setScrollOffset] = useState(0);
-  const [activeView, setActiveView] = useState<'home' | 'portfolio'>('home');
+  const [activeView, setActiveView] = useState<'home' | 'portfolio' | '404'>('home');
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMediaPlaying, setIsMediaPlaying] = useState(true);
+
+  // Synchronize global media playback (pause/play all videos & toggle body.media-paused class)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    if (!isMediaPlaying) {
+      document.body.classList.add('media-paused');
+      const videos = document.querySelectorAll('video');
+      videos.forEach((v) => {
+        try {
+          v.pause();
+        } catch (e) {}
+      });
+    } else {
+      document.body.classList.remove('media-paused');
+      const videos = document.querySelectorAll('video');
+      videos.forEach((v) => {
+        try {
+          if (v.hasAttribute('autoplay') || v.autoplay) {
+            v.play().catch(() => {});
+          }
+        } catch (e) {}
+      });
+    }
+
+    // Global capture event listener: immediately pause any video that tries to play while media is paused
+    const handleGlobalPlay = (e: Event) => {
+      if (!isMediaPlaying && e.target instanceof HTMLMediaElement) {
+        e.target.pause();
+      }
+    };
+
+    window.addEventListener('play', handleGlobalPlay, true);
+    window.dispatchEvent(new CustomEvent('mediaPlaybackChange', { detail: { isPlaying: isMediaPlaying } }));
+
+    return () => {
+      window.removeEventListener('play', handleGlobalPlay, true);
+    };
+  }, [isMediaPlaying]);
+
+  const toggleMediaPlayback = () => {
+    setIsMediaPlaying((prev) => !prev);
+  };
+
+  // Check URL path on initial mount for 404 routing
+  useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/404' || (path !== '/' && path !== '' && !path.startsWith('/#'))) {
+      setActiveView('404');
+    }
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
   // Global keyboard shortcut and secret sequence "7712" typing code trigger to open Admin Panel
   useEffect(() => {
@@ -618,17 +750,44 @@ export default function App() {
       : ["inset(0% 100% 0% 0%)", "inset(0% 0% 0% 0%)"]
   );
 
-  const yMoon = useTransform(scrollYProgress, [0, 1], [-80, 80]);
-  const yObj2 = useTransform(scrollYProgress, [0, 1], [60, -60]);
-  const yLego = useTransform(scrollYProgress, [0, 1], [-70, 70]);
-  const yGroup = useTransform(scrollYProgress, [0, 1], [90, -90]);
+  const smoothAboutScroll = useSpring(scrollYProgress, {
+    stiffness: 80,
+    damping: 20,
+    restDelta: 0.001
+  });
+
+  const yMoon = useTransform(smoothAboutScroll, [0, 1], [-130, 130]);
+  const rotateMoon = useTransform(smoothAboutScroll, [0, 1], [-12, 12]);
+
+  const yObj2 = useTransform(smoothAboutScroll, [0, 1], [110, -110]);
+  const rotateObj2 = useTransform(smoothAboutScroll, [0, 1], [10, -10]);
+
+  const yLego = useTransform(smoothAboutScroll, [0, 1], [-120, 120]);
+  const rotateLego = useTransform(smoothAboutScroll, [0, 1], [-14, 14]);
+
+  const yGroup = useTransform(smoothAboutScroll, [0, 1], [140, -140]);
+  const rotateGroup = useTransform(smoothAboutScroll, [0, 1], [12, -12]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeView]);
 
-  // Integrated Lenis smooth scroll
+  // Integrated Lenis smooth scroll (Bypassed on mobile touch screens for 60fps native momentum scrolling)
   useEffect(() => {
+    const isMobileDevice = typeof window !== 'undefined' && (
+      window.innerWidth < 768 || 
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    );
+
+    if (isMobileDevice) {
+      const handleMobileScroll = () => setScrollOffset(window.scrollY);
+      window.addEventListener('scroll', handleMobileScroll, { passive: true });
+      (window as any).lenis = null;
+      return () => {
+        window.removeEventListener('scroll', handleMobileScroll);
+      };
+    }
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -656,6 +815,7 @@ export default function App() {
     return () => {
       cancelAnimationFrame(rafId);
       lenis.destroy();
+      (window as any).lenis = null;
     };
   }, [activeView]);
 
@@ -700,18 +860,11 @@ export default function App() {
     "https://motionsites.ai/assets/hero-designpro-preview-D8c5_een.gif",
     "https://motionsites.ai/assets/hero-stellar-ai-preview-D3HL6bw1.gif",
     "https://motionsites.ai/assets/hero-xportfolio-preview-D4A8maiC.gif",
-    "https://motionsites.ai/assets/hero-orbit-web3-preview-BXt4OttD.gif",
-    "https://motionsites.ai/assets/hero-nexora-preview-cx5HmUgo.gif",
-    "https://motionsites.ai/assets/hero-evr-ventures-preview-DZxeVFEX.gif",
-    "https://motionsites.ai/assets/hero-planet-orbit-preview-DWAP8Z1P.gif",
-    "https://motionsites.ai/assets/hero-new-era-preview-CocuDUm9.gif",
-    "https://motionsites.ai/assets/hero-wealth-preview-B70idl_u.gif",
-    "https://motionsites.ai/assets/hero-luminex-preview-CxOP7ce6.gif",
-    "https://motionsites.ai/assets/hero-celestia-preview-0yO3jXO8.gif"
+    "https://motionsites.ai/assets/hero-orbit-web3-preview-BXt4OttD.gif"
   ];
 
-  const row1 = [...marqueeGifs.slice(0, 11), ...marqueeGifs.slice(0, 11), ...marqueeGifs.slice(0, 11)];
-  const row2 = [...marqueeGifs.slice(11), ...marqueeGifs.slice(11), ...marqueeGifs.slice(11)];
+  const row1 = [...marqueeGifs.slice(0, 7), ...marqueeGifs.slice(0, 7)];
+  const row2 = [...marqueeGifs.slice(7, 14), ...marqueeGifs.slice(7, 14)];
 
   return (
     <div dir={dir} className="min-h-screen bg-[#3A2A56] text-white font-sans overflow-x-clip selection:bg-[#F7941D] selection:text-white">
@@ -735,25 +888,58 @@ export default function App() {
             backgroundColor: progressBarColor,
           }}
         />
-        {activeView === 'portfolio' ? (
-          <PortfolioGallery onBackToHome={() => setActiveView('home')} />
-        ) : (
-          <>
-          {/* 1. HERO SECTION */}
+        <AnimatePresence mode="wait">
+          {activeView === 'portfolio' ? (
+            <motion.div
+              key="portfolio"
+              initial={{ opacity: 0, y: 35 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <PortfolioGallery onBackToHome={() => setActiveView('home')} />
+            </motion.div>
+          ) : activeView === '404' ? (
+            <motion.div
+              key="404"
+              initial={{ opacity: 0, y: 35 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <NotFound 
+                onGoHome={() => setActiveView('home')} 
+                onGoPortfolio={() => setActiveView('portfolio')} 
+                language={language}
+                dir={dir}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="home"
+              initial={{ opacity: 0, y: 35 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <>
+              {/* 1. HERO SECTION */}
           <section className="min-h-[640px] sm:min-h-[740px] md:min-h-screen md:h-screen flex flex-col overflow-x-clip relative">
             {/* Subtle animated wavy background with purple brand identity */}
-            <HeroWavyBackground />
+            <HeroWavyBackground isMediaPlaying={isMediaPlaying} />
 
             <FadeIn delay={0} y={-20} className="fixed top-0 left-0 right-0 z-50">
               <nav className={`w-full transition-all duration-500 border-b ${
                 scrollOffset > 20
-                  ? 'bg-[#1D1031]/95 backdrop-blur-xl border-white/10 shadow-xl py-2 md:py-3'
-                  : 'bg-transparent backdrop-blur-none border-transparent py-4 md:py-5'
+                  ? 'bg-[#180C2E]/92 backdrop-blur-xl border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-2 sm:py-2.5'
+                  : 'bg-gradient-to-b from-[#180C2E]/80 via-[#180C2E]/40 to-transparent backdrop-blur-sm border-white/5 py-3 sm:py-4'
               }`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-8 md:px-12 lg:px-16 flex justify-between items-center text-gray-300 font-medium tracking-wide text-xs sm:text-sm md:text-base">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-10 lg:px-14 flex justify-between items-center text-gray-300 font-medium tracking-wide">
+                  {/* Brand Logo & Name */}
                   <div 
                     onClick={() => {
                       setActiveView('home');
+                      setMobileMenuOpen(false);
                       const lenis = (window as any).lenis;
                       if (lenis) {
                         lenis.scrollTo(0);
@@ -761,7 +947,7 @@ export default function App() {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }
                     }} 
-                    className="flex items-center gap-3 hover:opacity-90 transition-opacity duration-200 cursor-pointer"
+                    className="group flex items-center gap-2 sm:gap-3 transition-all duration-300 cursor-pointer select-none"
                     title={t('nav.homeTitle')}
                   >
                     {t('nav.logoUrl') ? (
@@ -769,67 +955,295 @@ export default function App() {
                         src={t('nav.logoUrl')} 
                         alt={t('nav.brandName')} 
                         referrerPolicy="no-referrer"
-                        className="w-[48px] h-[48px] md:w-[56px] md:h-[56px] object-contain rounded-xl"
+                        className="w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] object-contain rounded-xl drop-shadow-md shrink-0 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(247,148,29,0.5)] transition-all duration-300"
                         onError={(e) => {
-                          // Fallback to text or hide on error
                           (e.target as HTMLImageElement).style.display = 'none';
+                          const fallbackLogo = document.getElementById('mona-logo-fallback');
+                          if (fallbackLogo) fallbackLogo.style.display = 'block';
                         }}
                       />
-                    ) : (
-                      <MonaLogo size={56} className="w-[48px] h-[48px] md:w-[56px] md:h-[56px]" />
-                    )}
-                    <span className="hidden sm:inline font-bold bg-gradient-to-r from-[#F7941D] to-white bg-clip-text text-transparent text-sm md:text-lg">{t('nav.brandName')}</span>
+                    ) : null}
+                    <MonaLogo 
+                      id="mona-logo-fallback"
+                      size={46} 
+                      className={`w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] shrink-0 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(247,148,29,0.5)] transition-all duration-300 ${t('nav.logoUrl') ? 'hidden' : ''}`} 
+                    />
+                    <span className="font-extrabold bg-gradient-to-r from-[#F7941D] via-amber-200 to-white bg-clip-text text-transparent text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">
+                      {t('nav.brandName')}
+                    </span>
                   </div>
                   
-                  <div className="flex items-center gap-2 sm:gap-4 md:gap-6 lg:gap-8">
+                  {/* Desktop Navigation (>= 768px) with Small-to-Medium Compact Typo Scale */}
+                  <div className="hidden md:flex items-center gap-1 lg:gap-3 text-xs md:text-sm font-medium">
                     <a 
                       href="#about" 
                       onClick={(e) => handleScrollTo(e, 'about')} 
-                      className="hidden md:inline-block hover:text-[#F7941D] transition-colors duration-300"
+                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
                     >
-                      {t('nav.about')}
+                      <span>{t('nav.about')}</span>
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
                     </a>
                     <a 
                       href="#services" 
                       onClick={(e) => handleScrollTo(e, 'services')} 
-                      className="hidden md:inline-block hover:text-[#F7941D] transition-colors duration-300"
+                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
                     >
-                      {t('nav.services')}
+                      <span>{t('nav.services')}</span>
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
                     </a>
                     <a 
                       href="#projects" 
                       onClick={(e) => handleScrollTo(e, 'projects')} 
-                      className="hidden sm:inline-block hover:text-[#F7941D] transition-colors duration-300"
+                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
                     >
-                      {t('nav.projects')}
+                      <span>{t('nav.projects')}</span>
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
                     </a>
                     <button 
                       onClick={() => setActiveView('portfolio')} 
-                      className="hover:text-[#F7941D] transition-colors duration-300 cursor-pointer font-bold"
+                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5"
                     >
-                      {t('nav.portfolio')}
+                      <span>{t('nav.portfolio')}</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#F7941D] animate-pulse" />
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
                     </button>
                     <a 
                       href="#contact" 
                       onClick={(e) => handleScrollTo(e, 'contact')} 
-                      className="hover:text-white transition-all duration-300 text-[#F7941D] border border-[#F7941D]/30 hover:bg-[#F7941D] hover:border-transparent px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full font-medium whitespace-nowrap text-xs sm:text-sm"
+                      className="relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-[0_0_15px_rgba(247,148,29,0.3)] hover:shadow-[0_0_25px_rgba(247,148,29,0.6)] hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2"
                     >
-                      {t('nav.contact')}
+                      <span>{t('nav.contact')}</span>
                     </a>
 
-                    {/* Dynamic Language Switcher with rotating globe animation */}
+                    {/* Desktop Language Switcher */}
                     <button
                       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-                      className="relative overflow-hidden flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl border border-white/10 hover:border-[#F7941D]/40 bg-white/[0.03] hover:bg-[#F7941D]/10 text-[10px] sm:text-xs font-bold uppercase text-gray-300 hover:text-white transition-all duration-300 cursor-pointer group shadow-sm shrink-0"
+                      className="relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 hover:border-[#F7941D]/50 bg-white/[0.04] hover:bg-[#F7941D]/15 text-xs font-mono font-bold uppercase text-gray-200 hover:text-white transition-all duration-300 cursor-pointer group shadow-sm shrink-0 ms-1"
                       title={language === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
                     >
-                      <Globe size={12} className="text-[#F7941D] group-hover:rotate-180 transition-transform duration-500 shrink-0" />
-                      <span className="font-mono text-[9px] md:text-xs shrink-0">{language === 'ar' ? 'EN' : 'عربي'}</span>
+                      <Globe size={13} className="text-[#F7941D] group-hover:rotate-180 transition-transform duration-500 shrink-0" />
+                      <span className="font-mono text-xs shrink-0">{language === 'ar' ? 'EN' : 'عربي'}</span>
+                    </button>
+                  </div>
+
+                  {/* Mobile Topbar Controls (< 768px) */}
+                  <div className="flex md:hidden items-center gap-2">
+                    {/* Compact Language Switcher Pill */}
+                    <button
+                      onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-200 shrink-0 transition-all duration-200 active:scale-95"
+                      title={language === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
+                    >
+                      <Globe size={13} className="text-[#F7941D]" />
+                      <span className="font-mono text-[11px]">{language === 'ar' ? 'EN' : 'عربي'}</span>
+                    </button>
+
+                    {/* Mobile Hamburger Toggle Button */}
+                    <button
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                      className="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center"
+                      aria-label="Toggle Navigation Menu"
+                    >
+                      {mobileMenuOpen ? <X size={20} className="text-[#F7941D]" /> : <Menu size={20} className="text-[#F7941D]" />}
                     </button>
                   </div>
                 </div>
               </nav>
             </FadeIn>
+
+            {/* Slide-In Mobile Navigation Drawer */}
+            <AnimatePresence>
+              {mobileMenuOpen && (
+                <>
+                  {/* Dimmed Backdrop Overlay */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="fixed inset-0 bg-black/75 backdrop-blur-md z-[90] md:hidden"
+                  />
+
+                  {/* Slide-In Drawer Panel */}
+                  <motion.div
+                    initial={{ x: dir === 'rtl' ? '100%' : '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: dir === 'rtl' ? '100%' : '-100%' }}
+                    transition={{ type: 'spring', damping: 26, stiffness: 240 }}
+                    className={`fixed top-0 bottom-0 ${dir === 'rtl' ? 'right-0 border-l' : 'left-0 border-r'} w-[290px] sm:w-[340px] max-w-[85vw] bg-[#170B28] border-white/10 shadow-2xl z-[100] md:hidden flex flex-col justify-between p-6 overflow-y-auto`}
+                  >
+                    <div>
+                      {/* Drawer Header */}
+                      <div className="flex items-center justify-between pb-5 border-b border-white/10 mb-6">
+                        <div className="flex items-center gap-2.5">
+                          {t('nav.logoUrl') ? (
+                            <img 
+                              src={t('nav.logoUrl')} 
+                              alt={t('nav.brandName')} 
+                              className="w-[36px] h-[36px] object-contain rounded-lg"
+                            />
+                          ) : (
+                            <MonaLogo size={36} className="w-[36px] h-[36px]" />
+                          )}
+                          <span className="font-bold text-white text-base tracking-tight bg-gradient-to-r from-[#F7941D] to-white bg-clip-text text-transparent">
+                            {t('nav.brandName')}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                          aria-label="Close menu"
+                        >
+                          <X size={20} className="text-[#F7941D]" />
+                        </button>
+                      </div>
+
+                      {/* Navigation Items */}
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => {
+                            setActiveView('home');
+                            setMobileMenuOpen(false);
+                            const lenis = (window as any).lenis;
+                            if (lenis) lenis.scrollTo(0);
+                            else window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${activeView === 'home' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                        >
+                          <Home size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{dir === 'rtl' ? 'الرئيسية' : 'Home'}</span>
+                        </button>
+
+                        <a
+                          href="#about"
+                          onClick={(e) => {
+                            handleScrollTo(e, 'about');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                        >
+                          <User size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{t('nav.about')}</span>
+                        </a>
+
+                        <a
+                          href="#services"
+                          onClick={(e) => {
+                            handleScrollTo(e, 'services');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                        >
+                          <Briefcase size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{t('nav.services')}</span>
+                        </a>
+
+                        <a
+                          href="#projects"
+                          onClick={(e) => {
+                            handleScrollTo(e, 'projects');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                        >
+                          <Folder size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{t('nav.projects')}</span>
+                        </a>
+
+                        <button
+                          onClick={() => {
+                            setActiveView('portfolio');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${activeView === 'portfolio' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group font-bold`}
+                        >
+                          <Sparkles size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{t('nav.portfolio')}</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setActiveView('404');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${activeView === '404' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                        >
+                          <Compass size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="grow">{dir === 'rtl' ? 'صفحة 404' : '404 Page'}</span>
+                        </button>
+                      </div>
+
+                      {/* Contact CTA Button */}
+                      <div className="mt-6 pt-4 border-t border-white/10">
+                        <a
+                          href="#contact"
+                          onClick={(e) => {
+                            handleScrollTo(e, 'contact');
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-lg hover:shadow-[#F7941D]/30 transition-all duration-300 active:scale-98"
+                        >
+                          <MessageCircle size={18} />
+                          <span>{t('nav.contact')}</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Drawer Footer */}
+                    <div className="pt-6 border-t border-white/10 space-y-4">
+                      {/* Language Toggle inside drawer */}
+                      <button
+                        onClick={() => {
+                          setLanguage(language === 'ar' ? 'en' : 'ar');
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Globe size={16} className="text-[#F7941D]" />
+                          <span>{language === 'ar' ? 'اللغة / Language' : 'Language / اللغة'}</span>
+                        </div>
+                        <span className="font-mono font-bold text-[#F7941D]">
+                          {language === 'ar' ? 'English' : 'العربية'}
+                        </span>
+                      </button>
+
+                      {/* Social Quick Contact Links */}
+                      <div className="flex items-center justify-center gap-4 text-gray-400">
+                        <a
+                          href={t('contact.whatsappLink')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={18} />
+                        </a>
+                        <a
+                          href="tel:+967771213038"
+                          className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
+                          title="Phone"
+                        >
+                          <Phone size={18} />
+                        </a>
+                        <a
+                          href="mailto:manea.izz2013@gmail.com"
+                          className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
+                          title="Email"
+                        >
+                          <Mail size={18} />
+                        </a>
+                      </div>
+
+                      <p className="text-center text-[10px] text-gray-400 font-mono">
+                        {t('common.rights')}
+                      </p>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
 
         <div className="flex-grow flex flex-col justify-center items-center relative z-0">
           <div className="w-full text-center mt-6 sm:mt-4 md:-mt-5">
@@ -837,16 +1251,76 @@ export default function App() {
           </div>
         </div>
 
-        <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20 flex justify-between items-end pb-7 sm:pb-8 md:pb-10 z-20">
-          <FadeIn delay={0.35} y={20}>
-            <p className="text-gray-200 font-light uppercase tracking-wide leading-snug text-[clamp(0.75rem,1.4vw,1.5rem)] max-w-[160px] sm:max-w-[220px] md:max-w-[260px]">
-              {t('hero.subtitle')}
-            </p>
-          </FadeIn>
-          <FadeIn delay={0.5} y={20}>
-            <a href="#contact" onClick={(e) => handleScrollTo(e, 'contact')}>
-              <ContactButton />
-            </a>
+        <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20 flex justify-between items-end pb-7 sm:pb-8 md:pb-10 z-20 gap-4">
+          {/* Subtitle Text without box container - crisp, high-end typography */}
+          <div className="max-w-[320px] xs:max-w-[380px] sm:max-w-[500px] md:max-w-[620px]">
+            <BlurInText 
+              key={language}
+              text={t('hero.subtitle')}
+              className="font-extrabold tracking-tight sm:tracking-normal leading-relaxed text-[clamp(1.1rem,2vw,1.75rem)] text-start bg-gradient-to-r from-white via-amber-100 to-[#F7941D] bg-clip-text text-transparent drop-shadow-[0_4px_18px_rgba(247,148,29,0.4)]"
+            />
+          </div>
+
+          {/* Sleek, Compact Media Pause/Play Controller on the opposite side */}
+          <FadeIn delay={0.4} y={15}>
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleMediaPlayback}
+              aria-label={isMediaPlaying 
+                ? (language === 'ar' ? 'إيقاف تشغيل الحركة والوسائط' : 'Pause motion graphics and videos') 
+                : (language === 'ar' ? 'تشغيل الحركة والوسائط' : 'Enable motion graphics and videos')
+              }
+              className="relative group/media flex items-center gap-2 px-3.5 sm:px-4.5 py-2.5 sm:py-2.5 rounded-full bg-[#160B2C]/80 [@media(hover:hover)]:hover:bg-[#200D3A] active:bg-[#200D3A] border border-[#F7941D]/40 [@media(hover:hover)]:hover:border-[#F7941D] active:border-[#F7941D] text-white shadow-[0_4px_20px_rgba(247,148,29,0.25)] [@media(hover:hover)]:hover:shadow-[0_8px_30px_rgba(247,148,29,0.55)] active:shadow-[0_4px_15px_rgba(247,148,29,0.4)] backdrop-blur-2xl transition-all duration-300 cursor-pointer select-none ring-1 ring-white/10 touch-manipulation min-h-[44px] sm:min-h-[40px] before:absolute before:-inset-2 before:content-['']"
+              title={isMediaPlaying 
+                ? (language === 'ar' ? 'إيقاف تشغيل الفيديوهات والخلفيات المتحركة لتسريع وتخفيف الموقع' : 'Pause background media to speed up site') 
+                : (language === 'ar' ? 'تشغيل الفيديوهات والخلفيات المتحركة' : 'Resume background media')
+              }
+            >
+              {/* Screen reader live region for state changes */}
+              <span className="sr-only" aria-live="polite" role="status">
+                {isMediaPlaying 
+                  ? (language === 'ar' ? 'الحركة مفعلة - اضغط لإيقاف الحركة' : 'Motion Enabled - Press to pause motion')
+                  : (language === 'ar' ? 'الحركة متوقفة - اضغط لتشغيل الحركة' : 'Motion Paused - Press to enable motion')
+                }
+              </span>
+
+              {/* Glowing LED Status Indicator */}
+              <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+                {isMediaPlaying ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F7941D] opacity-80" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F7941D] shadow-[0_0_8px_#F7941D]" />
+                  </>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                )}
+              </span>
+
+              {/* Icon & Equalizer */}
+              <div className="flex items-center gap-1.5 text-[#F7941D]">
+                {isMediaPlaying ? (
+                  <>
+                    <Pause size={13} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
+                    <div className="flex items-end gap-[2px] h-2.5 px-0.5 shrink-0">
+                      <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.1s] h-full" />
+                      <span className="w-[2px] bg-amber-300 rounded-full animate-bounce [animation-delay:0.3s] h-2/3" />
+                      <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.2s] h-4/5" />
+                    </div>
+                  </>
+                ) : (
+                  <Play size={13} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
+                )}
+              </div>
+
+              {/* Action Title */}
+              <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap text-white [@media(hover:hover)]:group-hover/media:text-[#F7941D] group-active/media:text-[#F7941D] transition-colors">
+                {isMediaPlaying 
+                  ? (language === 'ar' ? 'إيقاف الحركة' : 'Pause Motion')
+                  : (language === 'ar' ? 'تشغيل الحركة' : 'Play Motion')
+                }
+              </span>
+            </motion.button>
           </FadeIn>
         </div>
 
@@ -854,14 +1328,15 @@ export default function App() {
           <Magnet>
             <motion.div
               animate={{
-                y: -15,
+                y: isMediaPlaying ? -15 : 0,
               }}
               transition={{
                 duration: 3,
-                repeat: Infinity,
+                repeat: isMediaPlaying ? Infinity : 0,
                 repeatType: "reverse",
                 ease: "easeInOut"
               }}
+              className="relative group"
             >
               {(() => {
                 const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png";
@@ -869,10 +1344,13 @@ export default function App() {
                   return (
                     <video 
                       src={profileImg} 
-                      autoPlay 
+                      autoPlay={isMediaPlaying}
                       loop 
                       muted 
                       playsInline 
+                      onPlay={(e) => {
+                        if (!isMediaPlaying) e.currentTarget.pause();
+                      }}
                       className="w-full h-auto object-contain drop-shadow-2xl rounded-[40px] md:rounded-[60px]"
                     />
                   );
@@ -892,7 +1370,7 @@ export default function App() {
       </section>
 
       {/* 2. MARQUEE SECTION */}
-      <section className="bg-[#2A1E40] pt-24 sm:pt-32 md:pt-40 pb-10 overflow-hidden relative border-t border-[#331B5A]">
+      <section className="bg-[#2A1E40] py-12 sm:py-16 md:py-20 overflow-hidden relative border-t border-[#331B5A]">
         <div 
           className="flex gap-3 mb-3"
           style={{ 
@@ -901,7 +1379,15 @@ export default function App() {
           }}
         >
           {row1.map((url, i) => (
-            <img key={i} src={url} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-[420px] h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" />
+            <img 
+              key={i} 
+              src={url} 
+              alt="" 
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" 
+            />
           ))}
         </div>
         <div 
@@ -912,7 +1398,15 @@ export default function App() {
           }}
         >
           {row2.map((url, i) => (
-            <img key={i} src={url} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-[420px] h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" />
+            <img 
+              key={i} 
+              src={url} 
+              alt="" 
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" 
+            />
           ))}
         </div>
       </section>
@@ -920,28 +1414,28 @@ export default function App() {
       {/* 3. ABOUT SECTION */}
       <section id="about" ref={aboutRef} className="min-h-screen bg-[#3A2A56] relative flex flex-col items-center justify-center py-20 overflow-hidden">
         
-        {/* Decorative 3D Images */}
-        <FadeIn delay={0.1} x={-80} y={0} duration={0.9} className="absolute top-[4%] right-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-40 sm:opacity-100">
-          <motion.div style={{ y: yMoon }}>
-            <img src="https://shrug-person-78902957.figma.site/_components/v2/ebb2b8f25d8e24d5f0a5ca8af4c950de81aa2fd7/moon_icon.11395d36.png" alt="Moon 3D" referrerPolicy="no-referrer" className="w-full h-auto drop-shadow-xl" />
+        {/* Decorative 3D Images with Smooth Parallax & Subtle Rotation */}
+        <FadeIn delay={0.1} x={-80} y={0} duration={0.9} className="absolute top-[4%] right-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+          <motion.div style={{ y: yMoon, rotate: rotateMoon }}>
+            <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.png" alt="Video Editing 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
         
-        <FadeIn delay={0.25} x={-80} y={0} duration={0.9} className="absolute bottom-[8%] right-[4%] w-[50px] xs:w-[75px] sm:w-[100px] md:w-[140px] lg:w-[180px] opacity-40 sm:opacity-100">
-          <motion.div style={{ y: yObj2 }}>
-            <img src="https://shrug-person-78902957.figma.site/_components/v2/ebb2b8f25d8e24d5f0a5ca8af4c950de81aa2fd7/p59_1.4659672e.png" alt="3D Object" referrerPolicy="no-referrer" className="w-full h-auto drop-shadow-xl" />
+        <FadeIn delay={0.25} x={-80} y={0} duration={0.9} className="absolute bottom-[8%] right-[4%] w-[50px] xs:w-[75px] sm:w-[100px] md:w-[140px] lg:w-[180px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+          <motion.div style={{ y: yObj2, rotate: rotateObj2 }}>
+            <img src="https://i.ibb.co/F43mtR51/social-ads-v2.png" alt="Social Ads 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
-        <FadeIn delay={0.15} x={80} y={0} duration={0.9} className="absolute top-[4%] left-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-40 sm:opacity-100">
-          <motion.div style={{ y: yLego }}>
-            <img src="https://shrug-person-78902957.figma.site/_components/v2/ebb2b8f25d8e24d5f0a5ca8af4c950de81aa2fd7/lego_icon-1.703bb594.png" alt="Lego 3D" referrerPolicy="no-referrer" className="w-full h-auto drop-shadow-xl" />
+        <FadeIn delay={0.15} x={80} y={0} duration={0.9} className="absolute top-[4%] left-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+          <motion.div style={{ y: yLego, rotate: rotateLego }}>
+            <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.png" alt="Pen Tool 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
-        <FadeIn delay={0.3} x={80} y={0} duration={0.9} className="absolute bottom-[8%] left-[4%] w-[65px] xs:w-[90px] sm:w-[130px] md:w-[170px] lg:w-[220px] opacity-40 sm:opacity-100">
-          <motion.div style={{ y: yGroup }}>
-            <img src="https://shrug-person-78902957.figma.site/_components/v2/ebb2b8f25d8e24d5f0a5ca8af4c950de81aa2fd7/Group_134-1.2e04f3ce.png" alt="3D Group" referrerPolicy="no-referrer" className="w-full h-auto drop-shadow-xl" />
+        <FadeIn delay={0.3} x={80} y={0} duration={0.9} className="absolute bottom-[8%] left-[4%] w-[65px] xs:w-[90px] sm:w-[130px] md:w-[170px] lg:w-[220px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+          <motion.div style={{ y: yGroup, rotate: rotateGroup }}>
+            <img src="https://i.ibb.co/CsXrWskK/web-design-v2.png" alt="Web Design 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
@@ -998,11 +1492,11 @@ export default function App() {
             return (
               <div 
                 key={num} 
-                className="sticky top-24 md:top-32 h-[85vh] flex items-center justify-center w-full"
-                style={{ paddingTop: `${i * 28}px` }}
+                className="sticky top-20 sm:top-24 md:top-32 h-auto min-h-[60vh] max-h-[85vh] md:h-[85vh] flex items-center justify-center w-full my-3 sm:my-0"
+                style={{ paddingTop: `${i * 20}px` }}
               >
                 <motion.div 
-                  className="w-full h-full bg-[#3A2A56] rounded-[40px] sm:rounded-[50px] md:rounded-[60px] border border-[#F7941D]/30 p-4 sm:p-6 md:p-8 flex flex-col shadow-2xl overflow-hidden"
+                  className="w-full h-full bg-[#3A2A56] rounded-[28px] sm:rounded-[50px] md:rounded-[60px] border border-[#F7941D]/30 p-4 sm:p-6 md:p-8 flex flex-col shadow-2xl overflow-hidden"
                   initial={{ scale: 1 }}
                   whileInView={{ scale: targetScale }}
                   viewport={{ margin: "-100px", amount: "all" }}
@@ -1097,24 +1591,21 @@ export default function App() {
                 {isVideoUrl(logo) ? (
                   <video 
                     src={logo} 
-                    autoPlay 
+                    autoPlay={isMediaPlaying} 
                     loop 
                     muted 
                     playsInline 
+                    onPlay={(e) => {
+                      if (!isMediaPlaying) e.currentTarget.pause();
+                    }}
                     className="partner-logo max-w-[85%] max-h-[85%] object-contain"
                   />
                 ) : (
-                  <motion.img 
+                  <img 
                     src={logo} 
                     alt={`شريك النجاح ${idx + 1}`} 
                     referrerPolicy="no-referrer"
-                    variants={{
-                      hover: { scale: 1.12 }
-                    }}
-                    transition={{
-                      duration: 0.4,
-                      ease: "easeOut"
-                    }}
+                    loading="lazy"
                     className="partner-logo max-w-[85%] max-h-[85%] object-contain"
                   />
                 )}
@@ -1129,6 +1620,47 @@ export default function App() {
         {/* Immersive Animated Graphic Design & Brand Identity Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
           
+          {/* Continuous lightweight ambient looping background video / GIF */}
+          {(() => {
+            const footerBgUrl = t('footer.bgVideoUrl') || 'https://i.ibb.co/1t1vRfbg/maneahero-ezgif-com-video-to-gif-converter.gif';
+            return isVideoUrl(footerBgUrl) ? (
+              <video
+                src={footerBgUrl}
+                autoPlay={isMediaPlaying}
+                loop
+                muted
+                playsInline
+                aria-hidden="true"
+                onPlay={(e) => {
+                  if (!isMediaPlaying) e.currentTarget.pause();
+                }}
+                className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
+                  isMediaPlaying ? 'opacity-40' : 'opacity-0'
+                }`}
+                style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
+              />
+            ) : (
+              <img
+                src={footerBgUrl}
+                alt=""
+                loading="eager"
+                decoding="async"
+                aria-hidden="true"
+                referrerPolicy="no-referrer"
+                className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
+                  isMediaPlaying ? 'opacity-45' : 'opacity-0'
+                }`}
+                style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
+              />
+            );
+          })()}
+
+          {/* Light Purple Brand Tint Overlay */}
+          <div className="absolute inset-0 bg-[#2A1052]/40 pointer-events-none z-[1]" />
+
+          {/* Bottom-to-Top Soft Purple Gradient Overlay (Purple at bottom fading out to transparent at top) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#110724] via-[#1F0C3B]/80 to-transparent pointer-events-none z-[2]" />
+
           {/* Subtle Cybernetic Grid Pattern Overlay with moving gradient mask */}
           <div 
             className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
@@ -1450,10 +1982,11 @@ export default function App() {
 
         </div>
       </footer>
-      <ReadingProgress />
       <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
-          </>
-        )}
+              </>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

@@ -101,14 +101,15 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Hero Section
     'hero.welcome': 'مرحباً، أنا مانع',
-    'hero.subtitle': 'صانع ثلاثي الأبعاد شغوف بابتكار مشاريع مذهلة لا تُنسى',
+    'hero.subtitle': 'أصنع حضورًا بصريًا يترك أثرًا.',
     'hero.contactBtn': 'تواصل معي',
     'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png',
-    'hero.bgVideoUrl': 'https://assets.mixkit.co/videos/preview/mixkit-abstract-dark-plexus-glowing-dots-connection-loop-42865-large.mp4',
+    'hero.bgVideoUrl': 'https://i.ibb.co/v61V8K48/manea-hero-1.gif',
+    'footer.bgVideoUrl': 'https://i.ibb.co/1t1vRfbg/maneahero-ezgif-com-video-to-gif-converter.gif',
 
     // About Section
     'about.title': 'من أنا',
-    'about.text': 'مع أكثر من خمس سنوات من الخبرة في مجال التصميم، أركز على العلامات التجارية، وتصميم الويب، وتجربة المستخدم. أستمتع حقًا بالعمل مع الشركات التي تطمح للتميز وتقديم أفضل صورة لها. دعنا نبني شيئاً مذهلاً معاً!',
+    'about.text': 'بخبرة تمتد لأكثر من 12 عامًا في مجال التصميم الرقمي، أكرّس خبرتي لتحويل الأفكار إلى هويات بصرية راسخة وتجارب رقمية استثنائية. أقدّم حلولًا إبداعية تجمع بين الرؤية الفنية والدقة الاحترافية، بدءًا من تصميم الهويات البصرية وصولًا إلى واجهات الويب الحديثة، بما يعزز حضور العلامات التجارية ويمنحها قيمةً وهويةً متميزة.',
 
     // Services Section
     'services.subtitle': 'مجالات الخبرة والتميز',
@@ -226,14 +227,15 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Hero Section
     'hero.welcome': 'Hi, I am Manea',
-    'hero.subtitle': 'A 3D creator passionate about making stunning and memorable projects',
+    'hero.subtitle': 'Crafting a visual presence that leaves a lasting impact.',
     'hero.contactBtn': 'Contact Me',
     'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png',
-    'hero.bgVideoUrl': 'https://assets.mixkit.co/videos/preview/mixkit-abstract-dark-plexus-glowing-dots-connection-loop-42865-large.mp4',
+    'hero.bgVideoUrl': 'https://i.ibb.co/v61V8K48/manea-hero-1.gif',
+    'footer.bgVideoUrl': 'https://i.ibb.co/1t1vRfbg/maneahero-ezgif-com-video-to-gif-converter.gif',
 
     // About Section
     'about.title': 'About Me',
-    'about.text': 'With over five years of design experience, I specialize in branding, web design, and user experience. I genuinely enjoy collaborating with ambitious companies striving to stand out and present their best self. Let\'s build something amazing together!',
+    'about.text': 'With over 12 years of experience in digital design, I dedicate my expertise to transforming ideas into established visual identities and exceptional digital experiences. I deliver creative solutions blending artistic vision with professional precision—from branding design to modern web interfaces—elevating brand presence and delivering distinctive value.',
 
     // Services Section
     'services.subtitle': 'Areas of Expertise & Excellence',
@@ -388,7 +390,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 1. Initial Data Fetching from Backend Database Files
   useEffect(() => {
     fetch('/api/public/data')
-      .then(res => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get("content-type");
+        if (!res.ok || !contentType || !contentType.includes("application/json")) {
+          throw new Error(`Server returned non-JSON response (${res.status})`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data.success) {
           if (data.portfolioItems) {
@@ -449,12 +457,22 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ...payload
       })
     })
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) {
-        console.error("Failed to sync modification to backend server:", data.error);
-      } else {
-        console.log("Successfully synchronized change with backend persistence storage!");
+    .then(async (res) => {
+      const contentType = res.headers.get("content-type");
+      if (!res.ok) {
+        const errText = (contentType && contentType.includes("application/json"))
+          ? (await res.json()).error
+          : `HTTP error ${res.status}`;
+        console.error("Failed to sync modification to backend server:", errText);
+        return;
+      }
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        if (!data.success) {
+          console.error("Failed to sync modification to backend server:", data.error);
+        } else {
+          console.log("Successfully synchronized change with backend persistence storage!");
+        }
       }
     })
     .catch(err => {

@@ -65,7 +65,7 @@ const ServiceStickyCard = ({ scrollYProgress, index, total, service }: ServiceSt
 
   const range = [p0, p1, p2, p3, p4];
 
-  // Responsive percentages based on card's own width for elegant overlap (inverted for LTR vs RTL as requested)
+  // Responsive percentages and vertical displacement for elegant scroll-triggered reveal
   const x = useTransform(
     scrollYProgress, 
     range, 
@@ -73,25 +73,27 @@ const ServiceStickyCard = ({ scrollYProgress, index, total, service }: ServiceSt
       ? ["-140%", "-85%", "0%", "85%", "140%"] 
       : ["140%", "85%", "0%", "-85%", "-140%"]
   );
-  const opacity = useTransform(scrollYProgress, range, [0, 0.35, 1, 0.35, 0]);
-  const scale = useTransform(scrollYProgress, range, [0.75, 0.82, 1, 0.82, 0.75]);
+  const y = useTransform(scrollYProgress, range, ["100px", "40px", "0px", "-40px", "-100px"]);
+  const opacity = useTransform(scrollYProgress, range, [0, 0.4, 1, 0.4, 0]);
+  const scale = useTransform(scrollYProgress, range, [0.72, 0.85, 1, 0.85, 0.72]);
   const rotate = useTransform(
     scrollYProgress, 
     range, 
     dir === 'rtl' 
-      ? [-4, -2, 0, 2, 4] 
-      : [4, 2, 0, -2, -4]
+      ? [-6, -3, 0, 3, 6] 
+      : [6, 3, 0, -3, -6]
   );
 
-  // Numeric blur value dynamically transformed to CSS filter string
-  const blurValue = useTransform(scrollYProgress, range, [12, 4, 0, 4, 12]);
-  const filter = useTransform(blurValue, (v) => `blur(${v}px)`);
+  // Numeric blur value dynamically transformed to CSS filter string (disabled on mobile for GPU optimization)
+  const blurValue = useTransform(scrollYProgress, range, [10, 3, 0, 3, 10]);
+  const filter = useTransform(blurValue, (v) => (typeof window !== 'undefined' && window.innerWidth < 640) ? 'none' : `blur(${v}px)`);
 
   return (
     <motion.div
       style={{
         opacity,
         x,
+        y,
         scale,
         rotate,
         filter,
@@ -227,7 +229,7 @@ export default function ServicesPinnedSection() {
       ref={containerRef} 
       id="services" 
       dir={dir}
-      className={`relative min-h-[600vh] bg-[#331B5A] rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
+      className={`relative min-h-[280vh] md:min-h-[600vh] bg-[#331B5A] rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
     >
       {/* Bottom transition gradient to Projects section for flawless color merging */}
       <div className="absolute bottom-0 left-0 w-full h-[40vh] bg-gradient-to-t from-[#2A1E40] via-[#2D1B4D]/60 to-transparent pointer-events-none z-10" />

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Calendar, User, Hammer, ChevronLeft, ChevronRight, MessageCircle, ArrowRight, Play, Pause } from 'lucide-react';
 import { PortfolioItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { LazyImage, LazyVideo, LazyMedia } from './LazyMedia';
 
 const isVideoUrl = (url: string) => {
   if (!url) return false;
@@ -38,7 +39,8 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
 
   // Auto-play interval timer (5 seconds)
   useEffect(() => {
-    if (!autoplayActive || isHovered || selectedProject !== null || translatedPortfolioItems.length === 0) return;
+    const isPaused = typeof document !== 'undefined' && document.body.classList.contains('media-paused');
+    if (!autoplayActive || isHovered || selectedProject !== null || translatedPortfolioItems.length === 0 || isPaused) return;
 
     const timer = setInterval(() => {
       setAutoplayIndex((prev) => (prev + 1) % translatedPortfolioItems.length);
@@ -138,18 +140,18 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
         );
       } else {
         return (
-          <video 
+          <LazyVideo 
             src={url} 
             controls 
+            autoPlay={false}
             className="w-full h-full object-cover rounded-t-[32px] lg:rounded-tr-none lg:rounded-l-[32px]"
-            preload="metadata"
             playsInline
           />
         );
       }
     }
     return (
-      <img 
+      <LazyImage 
         src={url} 
         alt="" 
         referrerPolicy="no-referrer"
@@ -159,7 +161,14 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
   };
 
   return (
-    <div dir={dir} className={`min-h-screen bg-[#2A1E40] text-white pt-24 pb-20 px-4 sm:px-6 md:px-10 font-sans ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      dir={dir} 
+      className={`min-h-screen bg-[#2A1E40] text-white pt-24 pb-20 px-4 sm:px-6 md:px-10 font-sans ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
+    >
       <div className="max-w-7xl mx-auto">
         
         {/* Header navigation section inside Portfolio */}
@@ -274,45 +283,25 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
             {/* Slide Visuals (Left-Aligned in RTL) */}
             <div className="lg:col-span-7 order-1 lg:order-2 relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-white/5 bg-[#1A122E] shadow-xl group/media">
               <AnimatePresence mode="wait">
-                {(() => {
-                  const mediaUrl = translatedPortfolioItems[autoplayIndex].image;
-                  const isVideo = isVideoUrl(mediaUrl);
-                  const commonProps = {
-                    initial: { opacity: 0, scale: 1.04 },
-                    animate: { opacity: 1, scale: 1 },
-                    exit: { opacity: 0, scale: 0.96 },
-                    transition: { duration: 0.5 },
-                    className: "w-full h-full object-cover cursor-pointer",
-                    onClick: () => handleOpenProject(translatedPortfolioItems[autoplayIndex])
-                  };
-                  if (isVideo) {
-                    return (
-                      <motion.video
-                        key={autoplayIndex}
-                        src={mediaUrl}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        referrerPolicy="no-referrer"
-                        {...commonProps}
-                      />
-                    );
-                  }
-                  return (
-                    <motion.img
-                      key={autoplayIndex}
-                      src={mediaUrl}
-                      alt={translatedPortfolioItems[autoplayIndex].title}
-                      referrerPolicy="no-referrer"
-                      {...commonProps}
-                    />
-                  );
-                })()}
+                <motion.div
+                  key={autoplayIndex}
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-full h-full"
+                >
+                  <LazyMedia
+                    src={translatedPortfolioItems[autoplayIndex].image}
+                    alt={translatedPortfolioItems[autoplayIndex].title}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => handleOpenProject(translatedPortfolioItems[autoplayIndex])}
+                  />
+                </motion.div>
               </AnimatePresence>
 
-              {/* Slider Next/Prev Arrows overlay (shown on hover) */}
-              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none opacity-0 group-hover/media:opacity-100 transition-opacity duration-300">
+              {/* Slider Next/Prev Arrows overlay (visible on touch mobile, hover on desktop) */}
+              <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none opacity-100 sm:opacity-0 sm:group-hover/media:opacity-100 transition-opacity duration-300">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -430,25 +419,11 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
               >
                 {/* Image wrapper with relative aspect ratio */}
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#1A122E]">
-                  {isVideoUrl(item.image) ? (
-                    <video
-                      src={item.image}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                      loading="lazy"
-                    />
-                  )}
+                  <LazyMedia
+                    src={item.image}
+                    alt={item.title}
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
                   {/* Hover visual cue - Cohesive Theme Overlay */}
                   <div className="absolute inset-0 bg-[#1D1031]/85 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center p-6 text-center">
                     <span className="text-[#F7941D] font-bold text-sm border-2 border-[#F7941D] rounded-full px-4 py-2 bg-[#1D1031] hover:bg-[#F7941D] hover:text-white transition-all duration-300 flex items-center gap-2">
@@ -685,6 +660,6 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

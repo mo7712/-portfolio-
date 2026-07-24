@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Lock, LayoutDashboard, FolderPlus, Settings, FileCode, Plus, Trash2, Edit2, 
   Save, Eye, CheckCircle, AlertTriangle, HelpCircle, Image as ImageIcon, 
-  ChevronRight, Globe, KeyRound, LogOut, Copy, RefreshCw 
+  ChevronRight, Globe, KeyRound, LogOut, Copy, RefreshCw, Download, Search, Sparkles 
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
@@ -401,8 +401,9 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     });
   };
 
-  // Search filter for project management
+  // Search & Category filter for project management
   const [projectSearch, setProjectSearch] = useState('');
+  const [selectedProjectCategory, setSelectedProjectCategory] = useState<string>('all');
 
   // Drag and drop states
   const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
@@ -820,6 +821,89 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     setRawPortfolioItems(updatedItems);
   };
 
+  const handleDuplicateProject = (p: PortfolioItem) => {
+    const duplicatedItem: PortfolioItem = {
+      ...p,
+      id: 'proj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      title: language === 'ar' ? `[نسخة] ${p.title}` : `[Copy] ${p.title}`,
+      titleEn: p.titleEn ? `[Copy] ${p.titleEn}` : `[Copy] ${p.title}`
+    };
+    setRawPortfolioItems([duplicatedItem, ...rawPortfolioItems]);
+    showNotification(
+      language === 'ar' ? 'تم إنشاء نسخة عن المشروع بنجاح!' : 'Project duplicated successfully!'
+    );
+  };
+
+  const handleExportBackup = () => {
+    const backupData = {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      rawPortfolioItems,
+      rawCategories,
+      customTranslations,
+      rawPartnerLogos
+    };
+
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(backupData, null, 2)
+    )}`;
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', jsonString);
+    downloadAnchor.setAttribute(
+      'download',
+      `manea_portfolio_backup_${new Date().toISOString().slice(0, 10)}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    showNotification(
+      language === 'ar'
+        ? 'تم تحميل النسخة الاحتياطية المكتملة بنجاح!'
+        : 'Backup file exported successfully!'
+    );
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = JSON.parse(evt.target?.result as string);
+        if (data.rawPortfolioItems && Array.isArray(data.rawPortfolioItems)) {
+          setRawPortfolioItems(data.rawPortfolioItems);
+        }
+        if (data.rawCategories && Array.isArray(data.rawCategories)) {
+          setRawCategories(data.rawCategories);
+        }
+        if (data.customTranslations && typeof data.customTranslations === 'object') {
+          setAllCustomTranslations(data.customTranslations);
+        }
+        if (data.rawPartnerLogos && Array.isArray(data.rawPartnerLogos)) {
+          setRawPartnerLogos(data.rawPartnerLogos);
+          setLocalPartnerLogos(data.rawPartnerLogos);
+        }
+
+        showNotification(
+          language === 'ar'
+            ? 'تمت استعادة النسخة الاحتياطية وتحديث كافة بيانات الموقع بنجاح!'
+            : 'Backup restored and website content updated successfully!'
+        );
+      } catch (err) {
+        showNotification(
+          language === 'ar'
+            ? 'خطأ: ملف النسخة الاحتياطية غير صالح!'
+            : 'Error: Invalid backup JSON file!',
+          'error'
+        );
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   // --- CATEGORY CRUD HANDLERS ---
   const handleOpenAddCategory = () => {
     setEditingCategory(null);
@@ -987,6 +1071,209 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     }
   };
 
+  // --- AI AUTO-TRANSLATION & CATEGORY ID UTILITIES ---
+  const [isAutoTranslating, setIsAutoTranslating] = useState(false);
+
+  // Helper to fetch translation from API
+  const requestTranslation = async (textAr: string): Promise<string> => {
+    if (!textAr || !textAr.trim()) return '';
+    try {
+      const response = await fetch('/api/admin/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textAr })
+      });
+      const data = await response.json();
+      if (data.success && data.translated) {
+        return data.translated;
+      }
+    } catch (err) {
+      console.error("Translation API error:", err);
+    }
+    return textAr;
+  };
+
+  // Translate all Arabic fields of current Project Form
+  const handleAutoTranslateProjectForm = async () => {
+    if (!projForm.titleAr && !projForm.descriptionAr && !projForm.clientAr) {
+      showNotification(
+        language === 'ar' ? 'يرجى كتابة عنوان أو وصف أو اسم العميل بالعربية أولاً للترجمة' : 'Please fill Arabic fields first',
+        'error'
+      );
+      return;
+    }
+    setIsAutoTranslating(true);
+    try {
+      const res = await fetch('/api/admin/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          texts: [projForm.titleAr || '', projForm.descriptionAr || '', projForm.clientAr || '']
+        })
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.translated)) {
+        const [transTitle, transDesc, transClient] = data.translated;
+        setProjForm(prev => ({
+          ...prev,
+          titleEn: transTitle || prev.titleEn,
+          descriptionEn: transDesc || prev.descriptionEn,
+          clientEn: transClient || prev.clientEn
+        }));
+        showNotification(
+          language === 'ar' ? 'تمت ترجمة كافة تفاصيل المشروع بالذكاء الاصطناعي بنجاح!' : 'All project details translated to English successfully!'
+        );
+      }
+    } catch (err) {
+      showNotification(language === 'ar' ? 'حدث خطأ أثناء الترجمة التلقائية' : 'Error during translation', 'error');
+    } finally {
+      setIsAutoTranslating(false);
+    }
+  };
+
+  // Helper to slugify category names into valid english keys
+  const generateCategoryKeySlug = (labelAr: string, labelEn: string): string => {
+    const source = (labelEn || labelAr || '').trim();
+    if (!source) return '';
+
+    const dictionary: Record<string, string> = {
+      'تصميم': 'design',
+      'ثلاثي الأبعاد': '3d',
+      'ثلاثي الأبعاد 3d': '3d',
+      'هويات': 'branding',
+      'بصرية': 'identity',
+      'ويب': 'web',
+      'واجهات': 'ui-ux',
+      'موشن': 'motion',
+      'جرافيكس': 'graphics',
+      'مونتاج': 'editing',
+      'فيديو': 'video',
+      'إعلانات': 'ads',
+      'سوشيال': 'social',
+      'تطبيقات': 'apps',
+      'شعار': 'logo',
+      'طباعة': 'print',
+      'عام': 'general'
+    };
+
+    let str = source.toLowerCase();
+    Object.keys(dictionary).forEach(key => {
+      str = str.replace(new RegExp(key, 'g'), dictionary[key]);
+    });
+
+    const slug = str
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+
+    return slug || ('cat-' + Date.now().toString(36).substring(0, 6));
+  };
+
+  // Auto update Category form on typing Arabic label
+  const handleCategoryArChange = (valAr: string) => {
+    setCatForm(prev => {
+      const updatedAr = valAr;
+      const autoSlug = generateCategoryKeySlug(updatedAr, prev.labelEn);
+      return {
+        ...prev,
+        labelAr: updatedAr,
+        key: !editingCategory ? (autoSlug || prev.key) : prev.key
+      };
+    });
+  };
+
+  // Auto translate Category label & generate key
+  const handleAutoTranslateCategoryForm = async () => {
+    if (!catForm.labelAr.trim()) {
+      showNotification(language === 'ar' ? 'يرجى كتابة اسم القسم بالعربية أولاً' : 'Please enter Arabic category name first', 'error');
+      return;
+    }
+    setIsAutoTranslating(true);
+    try {
+      const transEn = await requestTranslation(catForm.labelAr);
+      const autoSlug = generateCategoryKeySlug(catForm.labelAr, transEn);
+      setCatForm(prev => ({
+        ...prev,
+        labelEn: transEn || prev.labelEn,
+        key: !editingCategory ? (autoSlug || prev.key) : prev.key
+      }));
+      showNotification(
+        language === 'ar' ? 'تمت ترجمة اسم القسم وتوليد معرف (Key) تلقائياً!' : 'Translated category name & generated unique key ID!'
+      );
+    } finally {
+      setIsAutoTranslating(false);
+    }
+  };
+
+  // Manual trigger to regenerate category key slug
+  const handleGenerateCatKeySlug = () => {
+    const slug = generateCategoryKeySlug(catForm.labelAr, catForm.labelEn);
+    if (slug) {
+      setCatForm(prev => ({ ...prev, key: slug }));
+      showNotification(language === 'ar' ? 'تم توليد مفتاح التعريف تلقائياً!' : 'Category key regenerated!');
+    }
+  };
+
+  // Translate single custom text item
+  const handleTranslateCustomText = async (itemKey: string, textAr: string) => {
+    if (!textAr || !textAr.trim()) {
+      showNotification(language === 'ar' ? 'يرجى كتابة النص بالعربية أولاً' : 'Please enter Arabic text first', 'error');
+      return;
+    }
+    setIsAutoTranslating(true);
+    try {
+      const transEn = await requestTranslation(textAr);
+      handleUpdateTranslation(itemKey, 'en', transEn);
+      showNotification(language === 'ar' ? 'تمت الترجمة إلى الإنجليزية بنجاح' : 'Translated to English successfully');
+    } finally {
+      setIsAutoTranslating(false);
+    }
+  };
+
+  // Batch translate all custom text items
+  const handleBatchTranslateAllCustomTexts = async () => {
+    setIsAutoTranslating(true);
+    try {
+      const itemsToTranslate = customizableTextKeys.filter(item => {
+        const isIcon = item.key.endsWith('.icon');
+        const isMedia = item.key.includes('Url') || item.key.includes('Link') || item.key.includes('Image') || item.key === 'hero.profileImage';
+        return !isIcon && !isMedia;
+      });
+
+      const arValues = itemsToTranslate.map(item => {
+        return (customTranslations.ar[item.key] !== undefined ? customTranslations.ar[item.key] : t(item.key)) || '';
+      });
+
+      const res = await fetch('/api/admin/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: arValues })
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.translated)) {
+        const updatedEn = { ...customTranslations.en };
+        itemsToTranslate.forEach((item, index) => {
+          if (data.translated[index]) {
+            updatedEn[item.key] = data.translated[index];
+          }
+        });
+        setAllCustomTranslations({
+          ...customTranslations,
+          en: updatedEn
+        });
+        showNotification(
+          language === 'ar' ? 'تمت ترجمة جميع النصوص المخصصة إلى الإنجليزية بالذكاء الاصطناعي بنجاح!' : 'Translated all custom texts to English successfully!'
+        );
+      }
+    } catch (err) {
+      showNotification(language === 'ar' ? 'حدث خطأ أثناء الترجمة الجماعية' : 'Error during batch translation', 'error');
+    } finally {
+      setIsAutoTranslating(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -1021,27 +1308,85 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[75%] h-36 bg-[#F7941D]/5 rounded-full blur-[90px] pointer-events-none" />
 
           {/* Top Header Panel */}
-          <div className="flex items-center justify-between p-5 border-b border-white/[0.08] relative z-10 shrink-0 bg-black/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 border-b border-white/[0.08] relative z-10 shrink-0 bg-gradient-to-r from-black/20 via-black/10 to-black/30 gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#F7941D]/15 border border-[#F7941D]/30 flex items-center justify-center text-[#F7941D]">
-                <LayoutDashboard size={18} />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#F7941D]/25 to-[#A359FF]/20 border border-[#F7941D]/35 flex items-center justify-center text-[#F7941D] shadow-lg shadow-[#F7941D]/5 shrink-0">
+                <LayoutDashboard size={20} />
               </div>
               <div>
-                <h2 className="font-extrabold text-lg text-white tracking-tight">
-                  {language === 'ar' ? 'لوحة التحكم السريّة' : 'Secret Admin Panel'}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-extrabold text-base sm:text-lg text-white tracking-tight">
+                    {language === 'ar' ? 'لوحة التحكم التنفيذية' : 'Executive Control Console'}
+                  </h2>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{language === 'ar' ? 'قاعدة البيانات متصلة' : 'Live Sync'}</span>
+                  </span>
+                </div>
                 <p className="text-[11px] text-gray-400">
-                  {language === 'ar' ? 'تحكم كامل بالمشاريع والأقسام ونصوص الموقع بسلاسة' : 'Manage your portfolio items, categories and website copy'}
+                  {language === 'ar' ? 'إدارة شاملة للمحتوى، الصور، نصوص الموقع والأمان بسرعة وسلاسة' : 'Full managerial control over portfolio, media, translations and security'}
                 </p>
               </div>
             </div>
 
-            <button 
-              onClick={onClose}
-              className="p-2 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all duration-200 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+            {/* Quick Action Bar & Close Button */}
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              {isAuthenticated && (
+                <div className="hidden lg:flex items-center gap-1.5 bg-white/[0.03] border border-white/10 p-1 rounded-xl mr-2">
+                  <button
+                    onClick={() => { setActiveTab('projects'); handleOpenAddProject(); }}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-400 hover:text-white hover:bg-[#F7941D]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'ar' ? 'إضافة مشروع جديد مباشرة' : 'Add new project'}
+                  >
+                    <Plus size={13} />
+                    <span>{language === 'ar' ? 'مشروع جديد' : 'New Project'}</span>
+                  </button>
+
+                  <div className="w-px h-3.5 bg-white/10" />
+
+                  <button
+                    onClick={() => setActiveTab('translations')}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'ar' ? 'تعديل نصوص الموقع' : 'Edit texts'}
+                  >
+                    <FileCode size={13} />
+                    <span>{language === 'ar' ? 'تعديل النصوص' : 'Edit Texts'}</span>
+                  </button>
+
+                  <div className="w-px h-3.5 bg-white/10" />
+
+                  <button
+                    onClick={() => setActiveTab('media')}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'ar' ? 'تعديل الوسائط والصور' : 'App media'}
+                  >
+                    <ImageIcon size={13} />
+                    <span>{language === 'ar' ? 'الوسائط' : 'Media'}</span>
+                  </button>
+
+                  <div className="w-px h-3.5 bg-white/10" />
+
+                  <button
+                    onClick={handleExportBackup}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'ar' ? 'تصدير نسخة احتياطية لكافة البيانات' : 'Export backup JSON'}
+                  >
+                    <Download size={13} />
+                    <span>{language === 'ar' ? 'نسخة احتياطية' : 'Backup'}</span>
+                  </button>
+                </div>
+              )}
+
+              <button 
+                onClick={onClose}
+                className="p-2 rounded-xl border border-white/10 bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 text-gray-400 hover:text-rose-300 transition-all duration-200 cursor-pointer flex items-center gap-1 text-xs font-bold"
+                title={language === 'ar' ? 'إغلاق لوحة التحكم والمعاينة' : 'Close and preview site'}
+              >
+                <Eye size={15} />
+                <span className="hidden sm:inline">{language === 'ar' ? 'المعاينة' : 'Preview'}</span>
+                <X size={16} className="sm:hidden" />
+              </button>
+            </div>
           </div>
 
           {!isAuthenticated ? (
@@ -1283,73 +1628,103 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
             <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative z-10 min-h-0">
               
               {/* Sidebar navigation tabs */}
-              <div className="w-full md:w-60 bg-black/10 border-b md:border-b-0 md:border-r border-white/5 p-3 flex flex-row md:flex-col gap-1 shrink-0 overflow-x-auto md:overflow-x-visible">
+              <div className="w-full md:w-64 bg-black/15 border-b md:border-b-0 md:border-r border-white/[0.08] p-3 flex flex-row md:flex-col gap-1.5 shrink-0 overflow-x-auto md:overflow-x-visible">
                 <button
                   onClick={() => { setActiveTab('projects'); setIsAddingProject(false); setEditingProject(null); }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
+                  className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
                     activeTab === 'projects' 
-                      ? 'bg-[#F7941D]/10 border border-[#F7941D]/30 text-[#F7941D]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#F7941D]/20 to-[#F7941D]/10 border border-[#F7941D]/40 text-[#F7941D] shadow-md shadow-[#F7941D]/5' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
-                  <LayoutDashboard size={15} />
-                  <span>{language === 'ar' ? 'إدارة المشاريع' : 'Manage Projects'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <LayoutDashboard size={16} />
+                    <span>{language === 'ar' ? 'إدارة المشاريع' : 'Manage Projects'}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    activeTab === 'projects' ? 'bg-[#F7941D] text-white' : 'bg-white/10 text-gray-400'
+                  }`}>
+                    {rawPortfolioItems.length}
+                  </span>
                 </button>
 
                 <button
                   onClick={() => { setActiveTab('media'); }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
+                  className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
                     activeTab === 'media' 
-                      ? 'bg-[#F7941D]/10 border border-[#F7941D]/30 text-[#F7941D]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#F7941D]/20 to-[#F7941D]/10 border border-[#F7941D]/40 text-[#F7941D] shadow-md shadow-[#F7941D]/5' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
-                  <ImageIcon size={15} />
-                  <span>{language === 'ar' ? 'تعديل صور التطبيق' : 'App Media & Images'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <ImageIcon size={16} />
+                    <span>{language === 'ar' ? 'صور وتصميم التطبيق' : 'App Media & Images'}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    activeTab === 'media' ? 'bg-[#F7941D] text-white' : 'bg-white/10 text-gray-400'
+                  }`}>
+                    {3 + localPartnerLogos.length}
+                  </span>
                 </button>
 
                 <button
                   onClick={() => { setActiveTab('categories'); setIsAddingCategory(false); setEditingCategory(null); }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
+                  className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
                     activeTab === 'categories' 
-                      ? 'bg-[#F7941D]/10 border border-[#F7941D]/30 text-[#F7941D]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#F7941D]/20 to-[#F7941D]/10 border border-[#F7941D]/40 text-[#F7941D] shadow-md shadow-[#F7941D]/5' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
-                  <FolderPlus size={15} />
-                  <span>{language === 'ar' ? 'الأقسام والتصنيفات' : 'Manage Categories'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <FolderPlus size={16} />
+                    <span>{language === 'ar' ? 'الأقسام والتصنيفات' : 'Manage Categories'}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    activeTab === 'categories' ? 'bg-[#F7941D] text-white' : 'bg-white/10 text-gray-400'
+                  }`}>
+                    {rawCategories.length}
+                  </span>
                 </button>
 
                 <button
                   onClick={() => { setActiveTab('translations'); }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
+                  className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
                     activeTab === 'translations' 
-                      ? 'bg-[#F7941D]/10 border border-[#F7941D]/30 text-[#F7941D]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#F7941D]/20 to-[#F7941D]/10 border border-[#F7941D]/40 text-[#F7941D] shadow-md shadow-[#F7941D]/5' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
-                  <FileCode size={15} />
-                  <span>{language === 'ar' ? 'تعديل نصوص الموقع' : 'Edit Website Texts'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <FileCode size={16} />
+                    <span>{language === 'ar' ? 'تعديل نصوص الموقع' : 'Edit Website Texts'}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    activeTab === 'translations' ? 'bg-[#F7941D] text-white' : 'bg-white/10 text-gray-400'
+                  }`}>
+                    {customizableTextKeys.length}
+                  </span>
                 </button>
 
                 <button
                   onClick={() => { setActiveTab('settings'); }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
+                  className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer w-full whitespace-nowrap ${
                     activeTab === 'settings' 
-                      ? 'bg-[#F7941D]/10 border border-[#F7941D]/30 text-[#F7941D]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#F7941D]/20 to-[#F7941D]/10 border border-[#F7941D]/40 text-[#F7941D] shadow-md shadow-[#F7941D]/5' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
-                  <KeyRound size={15} />
-                  <span>{language === 'ar' ? 'الأمان والمظهر' : 'Security & Appearance'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <KeyRound size={16} />
+                    <span>{language === 'ar' ? 'الأمان والمظهر' : 'Security & Settings'}</span>
+                  </div>
                 </button>
 
                 <div className="md:mt-auto pt-3 border-t border-white/5 w-full">
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 transition-all duration-200 cursor-pointer w-full text-right md:text-left whitespace-nowrap border border-transparent"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 cursor-pointer w-full text-right md:text-left whitespace-nowrap border border-transparent hover:border-rose-500/20"
                   >
-                    <LogOut size={15} />
+                    <LogOut size={16} />
                     <span>{language === 'ar' ? 'تسجيل الخروج' : 'Log Out'}</span>
                   </button>
                 </div>
@@ -1432,14 +1807,50 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           </motion.div>
                         )}
 
+                        {/* AI Auto-Translate Banner Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#F7941D]/15 to-purple-900/20 border border-[#F7941D]/30 p-3.5 rounded-xl text-xs">
+                          <div className="flex items-center gap-2.5 text-[#F7941D] font-bold">
+                            <Sparkles size={16} className={isAutoTranslating ? "animate-spin" : ""} />
+                            <span>{language === 'ar' ? 'مساعد الترجمة الذكية بالذكاء الاصطناعي:' : 'AI Translation Assistant:'}</span>
+                            <span className="text-gray-300 font-normal hidden md:inline">
+                              {language === 'ar' ? 'أدخل البيانات بالعربية ثم اضغط للترجمة التلقائية الفورية لكافة الحقول إلى الإنجليزية.' : 'Fill Arabic fields then click auto-translate to populate all English details.'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isAutoTranslating}
+                            onClick={handleAutoTranslateProjectForm}
+                            className="px-4 py-2 bg-[#F7941D] hover:bg-amber-600 text-white font-bold rounded-lg flex items-center gap-2 cursor-pointer transition-all duration-200 shadow-md shadow-amber-500/10 disabled:opacity-50"
+                          >
+                            <Sparkles size={14} className={isAutoTranslating ? "animate-spin" : ""} />
+                            <span>{isAutoTranslating ? (language === 'ar' ? 'جاري الترجمة...' : 'Translating...') : (language === 'ar' ? '✨ ترجمة كافة حقول المشروع للإنجليزية' : '✨ Auto-Translate All Fields')}</span>
+                          </button>
+                        </div>
+
                         {/* Form grid layout */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           
                           {/* Title Arabic */}
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-300 block">
-                              {language === 'ar' ? 'العنوان الإبداعي (بالعربية) *' : 'Creative Title (Arabic) *'}
-                            </label>
+                            <div className="flex justify-between items-center">
+                              <label className="text-xs font-bold text-gray-300 block">
+                                {language === 'ar' ? 'العنوان الإبداعي (بالعربية) *' : 'Creative Title (Arabic) *'}
+                              </label>
+                              <button
+                                type="button"
+                                disabled={isAutoTranslating || !projForm.titleAr}
+                                onClick={async () => {
+                                  setIsAutoTranslating(true);
+                                  const trans = await requestTranslation(projForm.titleAr);
+                                  setProjForm(p => ({ ...p, titleEn: trans || p.titleEn }));
+                                  setIsAutoTranslating(false);
+                                }}
+                                className="text-[10px] text-[#F7941D] hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-30"
+                              >
+                                <Sparkles size={11} />
+                                <span>{language === 'ar' ? 'ترجمة العنوان' : 'Translate Title'}</span>
+                              </button>
+                            </div>
                             <input 
                               type="text"
                               value={projForm.titleAr}
@@ -1461,6 +1872,7 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                               onChange={(e) => setProjForm({...projForm, titleEn: e.target.value})}
                               placeholder="e.g. Next Level Studio Brand Identity"
                               className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none"
+                              dir="ltr"
                             />
                           </div>
 
@@ -1519,9 +1931,25 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
 
                           {/* Description Arabic */}
                           <div className="space-y-2 md:col-span-2">
-                            <label className="text-xs font-bold text-gray-300 block">
-                              {language === 'ar' ? 'تفاصيل ووصف المشروع المكتوب (بالعربية) *' : 'Project Story & Description (Arabic) *'}
-                            </label>
+                            <div className="flex justify-between items-center">
+                              <label className="text-xs font-bold text-gray-300 block">
+                                {language === 'ar' ? 'تفاصيل ووصف المشروع المكتوب (بالعربية) *' : 'Project Story & Description (Arabic) *'}
+                              </label>
+                              <button
+                                type="button"
+                                disabled={isAutoTranslating || !projForm.descriptionAr}
+                                onClick={async () => {
+                                  setIsAutoTranslating(true);
+                                  const trans = await requestTranslation(projForm.descriptionAr);
+                                  setProjForm(p => ({ ...p, descriptionEn: trans || p.descriptionEn }));
+                                  setIsAutoTranslating(false);
+                                }}
+                                className="text-[10px] text-[#F7941D] hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-30"
+                              >
+                                <Sparkles size={11} />
+                                <span>{language === 'ar' ? 'ترجمة الوصف' : 'Translate Description'}</span>
+                              </button>
+                            </div>
                             <textarea 
                               rows={3}
                               value={projForm.descriptionAr}
@@ -1543,14 +1971,31 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                               onChange={(e) => setProjForm({...projForm, descriptionEn: e.target.value})}
                               placeholder="Describe details regarding this custom branding layout, creative steps, and final outcome..."
                               className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none"
+                              dir="ltr"
                             />
                           </div>
 
                           {/* Client Arabic */}
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-300 block">
-                              {language === 'ar' ? 'اسم العميل / الجهة المستفيدة (بالعربية)' : 'Client Name (Arabic)'}
-                            </label>
+                            <div className="flex justify-between items-center">
+                              <label className="text-xs font-bold text-gray-300 block">
+                                {language === 'ar' ? 'اسم العميل / الجهة المستفيدة (بالعربية)' : 'Client Name (Arabic)'}
+                              </label>
+                              <button
+                                type="button"
+                                disabled={isAutoTranslating || !projForm.clientAr}
+                                onClick={async () => {
+                                  setIsAutoTranslating(true);
+                                  const trans = await requestTranslation(projForm.clientAr);
+                                  setProjForm(p => ({ ...p, clientEn: trans || p.clientEn }));
+                                  setIsAutoTranslating(false);
+                                }}
+                                className="text-[10px] text-[#F7941D] hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-30"
+                              >
+                                <Sparkles size={11} />
+                                <span>{language === 'ar' ? 'ترجمة اسم العميل' : 'Translate Client'}</span>
+                              </button>
+                            </div>
                             <input 
                               type="text"
                               value={projForm.clientAr}
@@ -1571,6 +2016,7 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                               onChange={(e) => setProjForm({...projForm, clientEn: e.target.value})}
                               placeholder="e.g. Aura Studio or Personal project"
                               className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none"
+                              dir="ltr"
                             />
                           </div>
 
@@ -1664,31 +2110,94 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                     ) : (
                       /* PROJECTS DIRECTORY TABLE LIST */
                       <div className="space-y-4">
-                        {/* Search project */}
-                        <div className="relative">
-                          <input 
-                            type="text"
-                            placeholder={language === 'ar' ? 'ابحث في المشاريع المحفوظة...' : 'Filter saved projects...'}
-                            value={projectSearch}
-                            onChange={(e) => setProjectSearch(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/10 rounded-xl text-white text-xs focus:border-[#F7941D] focus:outline-none transition-all duration-200"
-                          />
+                        {/* Search project & Category Filter Chips */}
+                        <div className="flex flex-col md:flex-row gap-3">
+                          <div className="relative flex-grow">
+                            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none">
+                              <Search size={14} />
+                            </span>
+                            <input 
+                              type="text"
+                              placeholder={language === 'ar' ? 'ابحث باسم المشروع أو الوصف...' : 'Search by project name or description...'}
+                              value={projectSearch}
+                              onChange={(e) => setProjectSearch(e.target.value)}
+                              className="w-full pl-9 pr-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-xl text-white text-xs focus:border-[#F7941D] focus:outline-none transition-all duration-200"
+                            />
+                            {projectSearch && (
+                              <button
+                                onClick={() => setProjectSearch('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Quick Category filter buttons */}
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 shrink-0">
+                            <button
+                              onClick={() => setSelectedProjectCategory('all')}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                                selectedProjectCategory === 'all'
+                                  ? 'bg-[#F7941D] text-white shadow-md shadow-[#F7941D]/20'
+                                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                              }`}
+                            >
+                              {language === 'ar' ? 'جميع الأقسام' : 'All Categories'} ({rawPortfolioItems.length})
+                            </button>
+                            {rawCategories.map(cat => {
+                              const count = rawPortfolioItems.filter(p => p.category.toLowerCase() === cat.labelAr.toLowerCase() || p.categoryKey?.toLowerCase() === cat.key.toLowerCase()).length;
+                              return (
+                                <button
+                                  key={cat.key}
+                                  onClick={() => setSelectedProjectCategory(cat.key)}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                                    selectedProjectCategory === cat.key
+                                      ? 'bg-[#F7941D] text-white shadow-md shadow-[#F7941D]/20'
+                                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                                  }`}
+                                >
+                                  {language === 'ar' ? cat.labelAr : cat.labelEn} ({count})
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
-                        {/* Project Grid */}
-                        <p className="text-[11px] text-gray-500 bg-white/[0.02] px-3 py-2 rounded-lg border border-white/5 flex items-center gap-1.5">
-                          <LucideIcons.GripVertical size={13} className="text-[#F7941D]" />
-                          <span>
-                            {language === 'ar' 
-                              ? 'يمكنك سحب وإفلات المشاريع باستخدام مقبض السحب لترتيبها يدوياً.' 
-                              : 'You can drag and drop projects using the drag handle to rearrange them.'}
+                        {/* Drag and Drop Helper Bar */}
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 bg-white/[0.02] px-3.5 py-2.5 rounded-xl border border-white/5">
+                          <span className="flex items-center gap-1.5">
+                            <LucideIcons.GripVertical size={14} className="text-[#F7941D]" />
+                            <span>
+                              {language === 'ar' 
+                                ? 'يمكنك سحب وإفلات المشاريع لترتيبها يدوياً للعرض في المعرض.' 
+                                : 'Drag and drop projects to adjust display order in the portfolio.'}
+                            </span>
                           </span>
-                        </p>
+                          <span className="font-mono text-gray-500 font-bold">
+                            {rawPortfolioItems.filter(p => {
+                              const matchesSearch = p.title.toLowerCase().includes(projectSearch.toLowerCase()) || p.description.toLowerCase().includes(projectSearch.toLowerCase());
+                              const matchesCat = selectedProjectCategory === 'all' 
+                                || p.categoryKey === selectedProjectCategory 
+                                || p.category.toLowerCase() === selectedProjectCategory.toLowerCase() 
+                                || (rawCategories.find(c => c.key === selectedProjectCategory)?.labelAr.toLowerCase() === p.category.toLowerCase());
+                              return matchesSearch && matchesCat;
+                            }).length} / {rawPortfolioItems.length} {language === 'ar' ? 'مشروع' : 'projects'}
+                          </span>
+                        </div>
 
+                        {/* Project Grid Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {rawPortfolioItems
-                            .filter(p => p.title.toLowerCase().includes(projectSearch.toLowerCase()) || p.category.toLowerCase().includes(projectSearch.toLowerCase()))
-                            .map((p, idx) => {
+                            .filter(p => {
+                              const matchesSearch = p.title.toLowerCase().includes(projectSearch.toLowerCase()) || p.description.toLowerCase().includes(projectSearch.toLowerCase());
+                              const matchesCat = selectedProjectCategory === 'all' 
+                                || p.categoryKey === selectedProjectCategory 
+                                || p.category.toLowerCase() === selectedProjectCategory.toLowerCase() 
+                                || (rawCategories.find(c => c.key === selectedProjectCategory)?.labelAr.toLowerCase() === p.category.toLowerCase());
+                              return matchesSearch && matchesCat;
+                            })
+                            .map((p) => {
                               const isDragging = draggedProjectIndex !== null && rawPortfolioItems[draggedProjectIndex]?.id === p.id;
                               return (
                                 <div 
@@ -1697,44 +2206,48 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                   onDragStart={(e) => handleProjectDragStart(e, p.id)}
                                   onDragOver={(e) => handleProjectDragOver(e, p.id)}
                                   onDragEnd={handleProjectDragEnd}
-                                  className={`bg-white/[0.02] border p-3.5 flex gap-3.5 transition-all duration-200 rounded-xl relative ${
+                                  className={`bg-white/[0.02] border p-4 flex gap-3.5 transition-all duration-200 rounded-2xl relative group ${
                                     isDragging 
                                       ? 'opacity-40 border-dashed border-[#F7941D]/50 bg-[#F7941D]/5' 
-                                      : 'border-white/[0.05] hover:border-white/10 hover:bg-white/[0.04]'
+                                      : 'border-white/[0.07] hover:border-[#F7941D]/40 hover:bg-white/[0.04]'
                                   }`}
                                 >
                                   {/* Drag Handle */}
                                   <div 
-                                    className="flex items-center text-gray-500 hover:text-gray-300 shrink-0 cursor-grab active:cursor-grabbing self-stretch px-1"
+                                    className="flex items-center text-gray-500 hover:text-[#F7941D] shrink-0 cursor-grab active:cursor-grabbing self-stretch px-0.5 transition-colors"
                                     title={language === 'ar' ? 'اسحب لإعادة الترتيب' : 'Drag to reorder'}
                                   >
                                     <LucideIcons.GripVertical size={16} />
                                   </div>
 
-                                  <div className="w-16 h-16 rounded-lg bg-black/40 overflow-hidden shrink-0 relative border border-white/5">
+                                  <div className="w-20 h-20 rounded-xl bg-black/50 overflow-hidden shrink-0 relative border border-white/10 group-hover:border-[#F7941D]/30 transition-colors">
                                     <img 
                                       src={p.image} 
                                       alt="" 
                                       referrerPolicy="no-referrer"
-                                      className="w-full h-full object-cover" 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
                                       onError={(e) => {
-                                        // Fallback for broken images
                                         (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
                                       }}
                                     />
+                                    {p.gallery && p.gallery.length > 0 && (
+                                      <span className="absolute bottom-1 right-1 bg-black/70 text-amber-400 text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-md border border-white/10">
+                                        +{p.gallery.length}
+                                      </span>
+                                    )}
                                   </div>
 
                                   <div className="flex-grow min-w-0 flex flex-col justify-between">
                                     <div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] uppercase font-bold text-[#F7941D] bg-[#F7941D]/10 px-2 py-0.5 rounded-full">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[10px] font-bold text-[#F7941D] bg-[#F7941D]/10 border border-[#F7941D]/20 px-2.5 py-0.5 rounded-full truncate">
                                           {p.category}
                                         </span>
-                                        <span className="text-[10px] text-gray-400 font-mono">
+                                        <span className="text-[10px] text-gray-400 font-mono font-bold shrink-0">
                                           {p.year}
                                         </span>
                                       </div>
-                                      <h4 className="font-bold text-white text-sm mt-1.5 truncate">
+                                      <h4 className="font-bold text-white text-sm mt-1.5 truncate group-hover:text-amber-300 transition-colors">
                                         {p.title}
                                       </h4>
                                       <p className="text-[11px] text-gray-400 truncate mt-0.5">
@@ -1742,20 +2255,32 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                       </p>
                                     </div>
 
-                                    <div className="flex justify-end gap-2 mt-3">
+                                    {/* Action Buttons Row */}
+                                    <div className="flex items-center justify-end gap-1.5 mt-3 pt-2 border-t border-white/5">
                                       <button
                                         type="button"
                                         onClick={() => handleOpenEditProject(p)}
-                                        className="p-1.5 rounded-lg border border-white/5 hover:border-amber-500/20 bg-white/5 hover:bg-[#F7941D]/15 text-gray-300 hover:text-[#F7941D] transition-all cursor-pointer z-10"
-                                        title={language === 'ar' ? 'تعديل' : 'Edit'}
+                                        className="px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-[#F7941D]/10 hover:bg-[#F7941D]/25 text-[#F7941D] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                        title={language === 'ar' ? 'تعديل كامل بيانات المشروع' : 'Edit Project Details'}
                                       >
                                         <Edit2 size={13} />
+                                        <span>{language === 'ar' ? 'تعديل' : 'Edit'}</span>
                                       </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDuplicateProject(p)}
+                                        className="p-1.5 rounded-lg border border-white/10 hover:border-indigo-500/30 bg-white/5 hover:bg-indigo-500/15 text-gray-300 hover:text-indigo-400 transition-all cursor-pointer"
+                                        title={language === 'ar' ? 'نسخ هذا المشروع' : 'Duplicate Project'}
+                                      >
+                                        <Copy size={13} />
+                                      </button>
+
                                       <button
                                         type="button"
                                         onClick={() => handleDeleteProject(p.id)}
-                                        className="p-1.5 rounded-lg border border-white/5 hover:border-rose-500/20 bg-white/5 hover:bg-rose-500/15 text-gray-300 hover:text-rose-400 transition-all cursor-pointer z-10"
-                                        title={language === 'ar' ? 'حذف' : 'Delete'}
+                                        className="p-1.5 rounded-lg border border-white/10 hover:border-rose-500/30 bg-white/5 hover:bg-rose-500/15 text-gray-300 hover:text-rose-400 transition-all cursor-pointer"
+                                        title={language === 'ar' ? 'حذف المشروع' : 'Delete Project'}
                                       >
                                         <Trash2 size={13} />
                                       </button>
@@ -1834,34 +2359,26 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {/* Key */}
-                          <div className="space-y-1">
-                            <label className="text-xs text-gray-300 block font-bold">
-                              {language === 'ar' ? 'مفتاح التعريف الفريد (إنجليزي) *' : 'Unique ID Key (English) *'}
-                            </label>
-                            <input 
-                              type="text"
-                              value={catForm.key}
-                              onChange={(e) => setCatForm({...catForm, key: e.target.value})}
-                              placeholder="e.g. billboards"
-                              disabled={!!editingCategory}
-                              className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none font-mono"
-                              required
-                            />
-                            <p className="text-[10px] text-gray-500">
-                              {language === 'ar' ? 'يجب أن يكون بحروف إنجليزية صغيرة بدون مسافات.' : 'Must be lowercase letters, e.g. wedding'}
-                            </p>
-                          </div>
-
                           {/* Arabic Label */}
                           <div className="space-y-1">
-                            <label className="text-xs text-gray-300 block font-bold">
-                              {language === 'ar' ? 'اسم القسم بالعربية *' : 'Category Name (Arabic) *'}
-                            </label>
+                            <div className="flex justify-between items-center">
+                              <label className="text-xs text-gray-300 block font-bold">
+                                {language === 'ar' ? 'اسم القسم بالعربية *' : 'Category Name (Arabic) *'}
+                              </label>
+                              <button
+                                type="button"
+                                disabled={isAutoTranslating || !catForm.labelAr}
+                                onClick={handleAutoTranslateCategoryForm}
+                                className="text-[10px] text-[#F7941D] hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-30"
+                              >
+                                <Sparkles size={11} className={isAutoTranslating ? "animate-spin" : ""} />
+                                <span>{language === 'ar' ? 'ترجمة وتوليد ID' : 'Translate & Auto ID'}</span>
+                              </button>
+                            </div>
                             <input 
                               type="text"
                               value={catForm.labelAr}
-                              onChange={(e) => setCatForm({...catForm, labelAr: e.target.value})}
+                              onChange={(e) => handleCategoryArChange(e.target.value)}
                               placeholder="مثال: اللوحات الإعلانية"
                               className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none"
                               required
@@ -1876,11 +2393,53 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                             <input 
                               type="text"
                               value={catForm.labelEn}
-                              onChange={(e) => setCatForm({...catForm, labelEn: e.target.value})}
+                              onChange={(e) => {
+                                const newEn = e.target.value;
+                                setCatForm(prev => {
+                                  const autoSlug = generateCategoryKeySlug(prev.labelAr, newEn);
+                                  return {
+                                    ...prev,
+                                    labelEn: newEn,
+                                    key: !editingCategory ? (autoSlug || prev.key) : prev.key
+                                  };
+                                });
+                              }}
                               placeholder="e.g. Billboards & Signage"
                               className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none"
+                              dir="ltr"
                               required
                             />
+                          </div>
+
+                          {/* Key ID */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center">
+                              <label className="text-xs text-gray-300 block font-bold">
+                                {language === 'ar' ? 'مفتاح التعريف الفريد (ID/Key) *' : 'Unique ID Key (English) *'}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={handleGenerateCatKeySlug}
+                                className="text-[10px] text-amber-400 hover:text-amber-300 font-mono font-bold flex items-center gap-1 cursor-pointer"
+                                title={language === 'ar' ? 'إعادة توليد المعرف تلقائياً' : 'Regenerate ID'}
+                              >
+                                <Sparkles size={11} />
+                                <span>{language === 'ar' ? 'توليد ID' : 'Auto ID'}</span>
+                              </button>
+                            </div>
+                            <input 
+                              type="text"
+                              value={catForm.key}
+                              onChange={(e) => setCatForm({...catForm, key: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
+                              placeholder="e.g. billboards"
+                              disabled={!!editingCategory}
+                              className="w-full px-4 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:border-[#F7941D] focus:outline-none font-mono"
+                              dir="ltr"
+                              required
+                            />
+                            <p className="text-[10px] text-gray-400 flex items-center justify-between">
+                              <span>{language === 'ar' ? 'يتولد تلقائياً من اسم القسم، ويمكنك تعديله يدوياً.' : 'Auto-generated slug. Editable manually.'}</span>
+                            </p>
                           </div>
                         </div>
 
@@ -2028,13 +2587,24 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           </p>
                         </div>
 
-                        <button
-                          onClick={handleResetTranslations}
-                          className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 self-start lg:self-auto shrink-0"
-                        >
-                          <RefreshCw size={14} className="animate-spin-hover" />
-                          <span>{language === 'ar' ? 'استعادة الافتراضيات' : 'Restore Defaults'}</span>
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto shrink-0">
+                          <button
+                            type="button"
+                            disabled={isAutoTranslating}
+                            onClick={handleBatchTranslateAllCustomTexts}
+                            className="px-4 py-2 bg-[#F7941D] hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 shadow-md shadow-amber-500/10 disabled:opacity-50"
+                          >
+                            <Sparkles size={14} className={isAutoTranslating ? "animate-spin" : ""} />
+                            <span>{isAutoTranslating ? (language === 'ar' ? 'جاري الترجمة...' : 'Translating...') : (language === 'ar' ? '✨ ترجمة كافة النصوص بالذكاء الاصطناعي' : '✨ Batch Translate All Texts')}</span>
+                          </button>
+                          <button
+                            onClick={handleResetTranslations}
+                            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200"
+                          >
+                            <RefreshCw size={14} className="animate-spin-hover" />
+                            <span>{language === 'ar' ? 'استعادة الافتراضيات' : 'Restore Defaults'}</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Search Bar & Primary Classification Tabs */}
@@ -2470,6 +3040,16 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                     </h4>
                                     <code className="text-[10px] text-gray-500 block font-mono mt-0.5">{item.key}</code>
                                   </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={isAutoTranslating || !currentValAr}
+                                    onClick={() => handleTranslateCustomText(item.key, currentValAr)}
+                                    className="px-3 py-1 bg-[#F7941D]/10 hover:bg-[#F7941D]/20 border border-[#F7941D]/30 text-[#F7941D] hover:text-amber-300 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-30 shrink-0"
+                                  >
+                                    <Sparkles size={12} className={isAutoTranslating ? "animate-spin" : ""} />
+                                    <span>{language === 'ar' ? 'ترجمة تلقائية' : 'Auto Translate'}</span>
+                                  </button>
                                 </div>
 
                                 {/* Custom Input Text Areas */}
@@ -2982,6 +3562,42 @@ export default function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           <Save size={14} />
                           <span>{language === 'ar' ? 'حفظ الرمز الجديد' : 'Save PIN'}</span>
                         </button>
+                      </div>
+
+                      {/* Backup & Restore Data Card */}
+                      <div className="bg-[#2A1E40]/30 border border-white/5 rounded-2xl p-6 space-y-4 hover:border-white/10 transition-all duration-200">
+                        <h4 className="font-bold text-white text-sm flex items-center gap-2 border-b border-white/5 pb-2">
+                          <LucideIcons.Database size={16} className="text-[#F7941D]" />
+                          {language === 'ar' ? 'النسخ الاحتياطي واستعادة البيانات' : 'Backup & Data Restoration'}
+                        </h4>
+                        
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                          {language === 'ar' 
+                            ? 'يمكنك تنزيل نسخة احتياطية شاملة لكافة المشاريع، الأقسام، النصوص، وشعارات الشركاء كملف JSON آمن لحتفظ به أو لاستعادته في أي وقت بنقرة واحدة.' 
+                            : 'Export a complete JSON backup of all projects, categories, translations, and logos to preserve or migrate your content instantly.'}
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleExportBackup}
+                            className="flex-1 py-2.5 px-4 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/30 text-emerald-200 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Download size={14} />
+                            <span>{language === 'ar' ? 'تصدير نسخة احتياطية (JSON)' : 'Export Backup JSON'}</span>
+                          </button>
+
+                          <label className="flex-1 py-2.5 px-4 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-200 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer text-center">
+                            <LucideIcons.Upload size={14} />
+                            <span>{language === 'ar' ? 'استيراد نسخة احتياطية' : 'Restore Backup JSON'}</span>
+                            <input 
+                              type="file" 
+                              accept=".json" 
+                              onChange={handleImportBackup} 
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
                       </div>
 
                       {/* Brand Assets Settings Card */}

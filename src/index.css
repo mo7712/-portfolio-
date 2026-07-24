@@ -121,3 +121,35 @@ html.lenis, html.lenis body {
   opacity: 1 !important;
 }
 
+/* Global Media & Motion Pause Mode for Performance & Speed */
+body.media-paused *,
+body.media-paused *::before,
+body.media-paused *::after {
+  animation-play-state: paused !important;
+  transition-duration: 0.01ms !important;
+}
+
+body.media-paused video {
+  filter: brightness(0.8);
+}
+
+body.media-paused img[src*=".gif"],
+body.media-paused img[src*="ezgif"],
+body.media-paused img[src*="gif"] {
+  opacity: 0 !important;
+  transition: opacity 0.5s ease-in-out !important;
+}
+
+body.media-paused .animate-wave-slow,
+body.media-paused .animate-wave-medium,
+body.media-paused .animate-wave-fast,
+body.media-paused .animate-blob-drift,
+body.media-paused .animate-blob-drift-reverse,
+body.media-paused .animate-blob-pulse,
+body.media-paused .animate-marquee,
+body.media-paused .animate-pulse,
+body.media-paused .animate-bounce,
+body.media-paused .animate-spin {
+  animation-play-state: paused !important;
+}
+
