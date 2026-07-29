@@ -95,7 +95,7 @@ export const NotFound: React.FC<NotFoundProps> = ({
             <span>{isAr ? 'عفواً، مسار مفقود' : 'Lost in Creative Space'}</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-white via-orange-100 to-[#F7941D] bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-white via-orange-100 to-[#F7941D] bg-clip-text text-transparent pb-1.5 leading-tight">
             {isAr ? '404 - الصفحة غير موجودة' : '404 - Page Not Found'}
           </h1>
 

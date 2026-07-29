@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Calendar, User, Hammer, ChevronLeft, ChevronRight, MessageCircle, ArrowRight, Play, Pause } from 'lucide-react';
 import { PortfolioItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-import { LazyImage, LazyVideo, LazyMedia } from './LazyMedia';
+import { useAnalytics } from '../hooks/useAnalytics';
+import { LazyVideo } from './LazyMedia';
+import ResponsiveImage from './ResponsiveImage';
 
 const isVideoUrl = (url: string) => {
   if (!url) return false;
@@ -27,6 +29,7 @@ type CategoryFilter = string;
 
 export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps) {
   const { language, t, dir, translatedPortfolioItems, categoriesList } = useLanguage();
+  const { trackCTA, trackEvent } = useAnalytics();
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<PortfolioItem | null>(null);
@@ -71,6 +74,17 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
     };
   }, [selectedProject]);
 
+  // Handle ESC key press to close project modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        setSelectedProject(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Categories list
   const categories: { key: CategoryFilter; label: string }[] = [
     { key: 'all', label: t('portfolioGallery.all') },
@@ -88,15 +102,18 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
   });
 
   const projectGallery = selectedProject 
-    ? [
-        ...(selectedProject.videoUrl ? [selectedProject.videoUrl] : []),
-        ...(selectedProject.gallery && selectedProject.gallery.length > 0 
-          ? selectedProject.gallery.filter(Boolean).map(url => url.trim())
-          : (selectedProject.image ? [selectedProject.image] : []))
-      ]
+    ? Array.from(new Set([
+        ...(selectedProject.videoUrl ? [selectedProject.videoUrl.trim()] : []),
+        ...(selectedProject.image ? [selectedProject.image.trim()] : []),
+        ...(selectedProject.gallery ? selectedProject.gallery.map(url => (url || '').trim()) : [])
+      ].filter(Boolean)))
     : [];
 
   const handleOpenProject = (project: PortfolioItem) => {
+    trackCTA('View Project Card', 'Portfolio Gallery', {
+      project_title: project.title,
+      category: project.category,
+    });
     setSelectedProject(project);
     setCurrentImageIndex(0);
   };
@@ -113,7 +130,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
     setCurrentImageIndex((prev) => (prev - 1 + projectGallery.length) % projectGallery.length);
   };
 
-  const renderMedia = (url: string) => {
+  const renderMedia = (url: string, alt: string = '', sizes: string = '(max-width: 1024px) 100vw, 55vw') => {
     if (!url) return null;
     if (isVideoUrl(url)) {
       const lowercaseUrl = url.toLowerCase();
@@ -151,10 +168,10 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
       }
     }
     return (
-      <LazyImage 
+      <ResponsiveImage 
         src={url} 
-        alt="" 
-        referrerPolicy="no-referrer"
+        alt={alt} 
+        sizes={sizes}
         className="w-full h-full object-cover"
       />
     );
@@ -175,7 +192,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12 border-b border-white/10 pb-8">
           <div>
             <span className="text-[#F7941D] font-bold tracking-widest text-xs uppercase block mb-1">{t('portfolioGallery.creativeShowcase')}</span>
-            <h1 className="text-3xl sm:text-5xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-5xl font-black bg-gradient-to-r from-white via-[#F7941D] to-[#A359FF] bg-clip-text text-transparent pb-1.5 leading-tight">
               {t('portfolioGallery.title')}
             </h1>
           </div>
@@ -291,9 +308,10 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                   transition={{ duration: 0.5 }}
                   className="w-full h-full"
                 >
-                  <LazyMedia
+                  <ResponsiveImage
                     src={translatedPortfolioItems[autoplayIndex].image}
                     alt={translatedPortfolioItems[autoplayIndex].title}
+                    sizes="(max-width: 1024px) 100vw, 58vw"
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => handleOpenProject(translatedPortfolioItems[autoplayIndex])}
                   />
@@ -419,9 +437,10 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
               >
                 {/* Image wrapper with relative aspect ratio */}
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#1A122E]">
-                  <LazyMedia
+                  <ResponsiveImage
                     src={item.image}
                     alt={item.title}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                   {/* Hover visual cue - Cohesive Theme Overlay */}
@@ -546,7 +565,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                 {/* Left Side: Photo/Video carousel */}
                 <div className="lg:w-[55%] relative bg-[#1A122E] flex flex-col justify-center min-h-[280px] lg:min-h-0">
                   <div className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden">
-                    {renderMedia(projectGallery[currentImageIndex])}
+                    {renderMedia(projectGallery[currentImageIndex], selectedProject.title, '(max-width: 1024px) 100vw, 55vw')}
                   </div>
 
                   {/* Carousel Controls */}
@@ -641,6 +660,11 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                   {/* Call to action on bottom of details */}
                   <div className="pt-6 border-t border-white/5 flex gap-3">
                     <a 
+                      onClick={() => {
+                        trackCTA('Project Inquiry WhatsApp', 'Portfolio Modal', {
+                          project_title: selectedProject.title,
+                        });
+                      }}
                       href={`${t('contact.whatsappLink').split('?')[0]}?text=${encodeURIComponent(
                         language === 'ar'
                           ? `مرحباً مانع، لقد أعجبني مشروعك "${selectedProject.title}" وأود الاستفسار عن تفاصيل تصميم مشابه.`

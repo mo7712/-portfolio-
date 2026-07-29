@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://manea-graphics.ai.studio/sitemap.xml

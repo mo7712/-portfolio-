@@ -1,0 +1,42 @@
+[
+  {
+    "key": "signage",
+    "labelAr": "لوحات ضوئية وتجارية",
+    "labelEn": "Illuminated & Commercial Signage"
+  },
+  {
+    "key": "3d",
+    "labelAr": "تصميم ثلاثي الأبعاد 3D",
+    "labelEn": "3D Design"
+  },
+  {
+    "key": "branding",
+    "labelAr": "هويات بصرية",
+    "labelEn": "Brand Identity"
+  },
+  {
+    "key": "web",
+    "labelAr": "تصميم الويب وUI/UX",
+    "labelEn": "Web & UI/UX Design"
+  },
+  {
+    "key": "motion",
+    "labelAr": "موشن جرافيكس",
+    "labelEn": "Motion Graphics"
+  },
+  {
+    "key": "ab",
+    "labelAr": "اللوحات الإعلانية",
+    "labelEn": "Advertising Boards"
+  },
+  {
+    "key": "smd",
+    "labelAr": "تصاميم سوشال ميديا",
+    "labelEn": "Social Media Designs"
+  },
+  {
+    "key": "vid",
+    "labelAr": "فيديوهات اعلانية",
+    "labelEn": "Advertising videos"
+  }
+]

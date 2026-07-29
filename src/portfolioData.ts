@@ -2,6 +2,36 @@ import { PortfolioItem } from './types';
 
 export const portfolioItems: PortfolioItem[] = [
   {
+    id: "proj-jq2ix0pv3",
+    title: "لوحات ضوئية وتجارية متنوعة",
+    titleEn: "Various Illuminated & Commercial Signage",
+    category: "لوحات ضوئية وتجارية",
+    categoryEn: "Illuminated & Commercial Signage",
+    categoryKey: "signage",
+    image: "https://i.ibb.co/gMLWG5tv/image.jpg",
+    description: "\"مجموعة من التصاميم المبتكرة للوحات الضوئية والتجارية التي تهدف إلى إبراز الهوية البصرية للعلامات التجارية في الواجهات الخارجية والداخلية. يعتمد العمل على توظيف ألوان عالية التباين وخطوط واضحة لضمان أقصى درجات المقروئية من مسافات بعيدة، مع مراعاة أدق المعايير الهندسية والفنية لتصنيع اللوحات البارزة والمضيئة. تم تصميم هذه اللوحات لتجمع بين الجمالية العصرية وقوة التأثير البصري، مما يعزز الحضور الميداني للأنشطة التجارية ويجذب الانتباه بفاعلية.\"",
+    descriptionEn: "\"A collection of innovative designs for illuminated and commercial signboards aimed at highlighting the visual identity of brands across exterior and interior facades. The work relies on utilizing high-contrast colors and clear typography to ensure maximum readability from a distance, while adhering to the highest technical and engineering standards for manufacturing 3D and illuminated signs. These signs are designed to combine modern aesthetics with striking visual impact, effectively enhancing the physical presence of commercial businesses and capturing attention.\"",
+    client: "مشاريع وعملاء متنوعون",
+    clientEn: "Various Clients",
+    year: "2025",
+    tools: [
+      "3D Max",
+      "Blender",
+      "Adobe Illustrator",
+      "Adobe Photoshop"
+    ],
+    gallery: [
+      "https://i.ibb.co/60ZF2S86/3.jpg",
+      "https://i.ibb.co/bMMXYxMn/8.jpg",
+      "https://i.ibb.co/xKbXgW9R/10.jpg",
+      "https://i.ibb.co/GQ0ctvd7/999.jpg",
+      "https://i.ibb.co/Cp7P38K9/6666.jpg",
+      "https://i.ibb.co/HTWfrFTv/8888.jpg",
+      "https://i.ibb.co/ynJJbyRG/2.jpg"
+    ],
+    videoUrl: ""
+  },
+  {
     id: "next-level-3d",
     title: "تصميم معماري ثلاثي الأبعاد: شاليه ريتال",
     titleEn: "3D Architectural Design: Retal Chalet",
@@ -22,9 +52,8 @@ export const portfolioItems: PortfolioItem[] = [
       "Adobe Photoshop"
     ],
     gallery: [
-      "https://i.ibb.co/NgYjFHgs/image.jpg",
       "https://i.ibb.co/DDJwhbWR/1773780832248.jpg",
-      "https://i.ibb.co/3589Kn6v/image.png",
+      "https://i.ibb.co/3589Kn6v/image.webp",
       "https://i.ibb.co/20KBTm9R/Luxury-angled-entrance-202604111943.jpg",
       "https://i.ibb.co/rfyG59Yy/image.jpg"
     ],
@@ -49,7 +78,6 @@ export const portfolioItems: PortfolioItem[] = [
     ],
     gallery: [
       "https://i.ibb.co/KzhWy47C/2.jpg",
-      "https://i.ibb.co/fGHg5cb7/image.jpg",
       "https://i.ibb.co/YF6VNcRy/2.jpg",
       "https://i.ibb.co/LdvbZPR8/image.jpg",
       "https://i.ibb.co/CsMM6sf8/image.jpg",
@@ -114,7 +142,7 @@ export const portfolioItems: PortfolioItem[] = [
     category: "تصميم ثلاثي الأبعاد 3D",
     categoryEn: "3D Design",
     categoryKey: "3d",
-    image: "https://i.ibb.co/zTcLqFr5/image.png",
+    image: "https://i.ibb.co/zTcLqFr5/image.webp",
     description: "\"تصميم ثلاثي الأبعاد متكامل لـ 'ستديو كانفاس'، يستعرض التوزيع الذكي والمدروس للمساحات الإبداعية المتنوعة والتي تشمل استديو التصوير الفوتوغرافي، غرفة التسجيل الصوتي المعزولة، وقسم التصميم والطباعة والفنون اليدوية (الريزن). يتميز العمل بتوظيف إضاءة واقعية متقنة وتناسق لوني أنيق يرتكز على تدرجات البنفسجي والأبيض، ليعكس هوية بصرية عصرية تليق ببيئة فنية متكاملة وتبرز أدق التفاصيل المعمارية للواجهة والديكور الداخلي.\"",
     descriptionEn: "\"A comprehensive 3D design for 'Canvas Studio', showcasing a smart and thoughtful spatial layout of various creative areas, including a photography studio, a soundproofed audio recording room, and a design, printing, and resin arts section. The project features meticulous realistic lighting and an elegant color harmony centered around purple and white gradients, reflecting a modern visual identity that suits an integrated artistic environment and highlights the finest architectural details of the exterior and interior decor.\"",
     client: "ستديو كانفاس",
@@ -132,7 +160,6 @@ export const portfolioItems: PortfolioItem[] = [
       "https://i.ibb.co/mVjFpgxv/image.jpg",
       "https://i.ibb.co/dsFCcX9J/image.jpg",
       "https://i.ibb.co/7dSCqJDc/image.jpg",
-      "https://i.ibb.co/zTcLqFr5/image.png",
       "https://i.ibb.co/46BrN8S/image.jpg"
     ],
     videoUrl: ""
@@ -156,26 +183,25 @@ export const portfolioItems: PortfolioItem[] = [
       "AI Tools"
     ],
     gallery: [
-      "https://ibb.co/r2kMRkMv",
-      "https://ibb.co/YFrNb24b",
+      "https://i.ibb.co/xWKS2c0/3.jpg",
       "https://i.ibb.co/pvgB4sJw/image.jpg",
-      "https://i.ibb.co/ycQ2TSMf/image.png",
-      "https://i.ibb.co/nqLsgM7Z/image.png"
+      "https://i.ibb.co/ycQ2TSMf/image.webp",
+      "https://i.ibb.co/nqLsgM7Z/image.webp"
     ],
     videoUrl: ""
   },
   {
     id: "stellar-ai-ui",
     title: "تصميم واجهة لوحة تحكم ذكاء اصطناعي",
-    titleEn: "",
+    titleEn: "AI Dashboard UI Design",
     category: "تصميم ويب وواجهات",
-    categoryEn: "",
+    categoryEn: "Web & UI Design",
     categoryKey: "web",
     image: "https://motionsites.ai/assets/hero-stellar-ai-preview-D3HL6bw1.gif",
     description: "تصميم واجهة مستخدم مظلمة مستقبلية ومصقولة للوحة تحكم إدارة بيانات الذكاء الاصطناعي مع رسومات بيانية ديناميكية وتأثيرات زجاجية شبه شفافة (Glassmorphism).",
-    descriptionEn: "",
+    descriptionEn: "A futuristic dark UI dashboard design for AI data management featuring dynamic graphs and glassmorphism visual effects.",
     client: "ستيلار آي (Stellar AI)",
-    clientEn: "Personal",
+    clientEn: "Stellar AI",
     year: "2026",
     tools: [
       "Figma",
@@ -183,7 +209,6 @@ export const portfolioItems: PortfolioItem[] = [
       "Tailwind CSS"
     ],
     gallery: [
-      "https://motionsites.ai/assets/hero-stellar-ai-preview-D3HL6bw1.gif",
       "https://motionsites.ai/assets/hero-transform-data-preview-Cx5OU29N.gif"
     ],
     videoUrl: ""
@@ -191,13 +216,13 @@ export const portfolioItems: PortfolioItem[] = [
   {
     id: "orbit-3d-loop",
     title: "حلقة حركة مدارية ثلاثية الأبعاد",
-    titleEn: "",
+    titleEn: "3D Orbital Motion Loop",
     category: "موشن جرافيكس",
-    categoryEn: "",
+    categoryEn: "Motion Graphics",
     categoryKey: "motion",
     image: "https://motionsites.ai/assets/hero-planet-orbit-preview-DWAP8Z1P.gif",
     description: "تصميم حلقة حركة مدارية دائرية مستمرة تتميز بتناسق الألوان والمسارات الجذابة، مثالية كعنصر خلفية تفاعلي في المواقع الإلكترونية الفاخرة وتطبيقات الميتافيرس.",
-    descriptionEn: "",
+    descriptionEn: "A continuous 3D orbital motion loop with smooth color harmony and appealing paths, perfect for luxury interactive website backgrounds.",
     client: "شخصي",
     clientEn: "Personal",
     year: "2025",
@@ -207,7 +232,6 @@ export const portfolioItems: PortfolioItem[] = [
       "Premiere Pro"
     ],
     gallery: [
-      "https://motionsites.ai/assets/hero-planet-orbit-preview-DWAP8Z1P.gif",
       "https://motionsites.ai/assets/hero-aethera-preview-DknSlcTa.gif"
     ],
     videoUrl: ""

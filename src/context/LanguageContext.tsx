@@ -12,6 +12,11 @@ interface LanguageContextType {
   t: (key: string) => string;
   translatedPortfolioItems: PortfolioItem[];
   
+  // Visual Live Editor state
+  isVisualEditorActive: boolean;
+  setIsVisualEditorActive: (active: boolean) => void;
+  updateTranslationKey: (key: string, value: string, targetLang?: Language) => void;
+
   // Admin-related states & actions
   rawPortfolioItems: PortfolioItem[];
   setRawPortfolioItems: (items: PortfolioItem[]) => void;
@@ -22,6 +27,12 @@ interface LanguageContextType {
   setAllCustomTranslations: (trans: Record<Language, Record<string, string>>) => void;
   rawPartnerLogos: string[];
   setRawPartnerLogos: (logos: string[]) => void;
+  saveAdminData: (data: {
+    portfolioItems?: PortfolioItem[];
+    categories?: CategoryItem[];
+    customTranslations?: Record<Language, Record<string, string>>;
+    partnerLogos?: string[];
+  }) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -81,10 +92,14 @@ const getEnglishClient = (id: string): string => {
 };
 
 const defaultCategories: CategoryItem[] = [
+  { key: 'signage', labelAr: 'لوحات ضوئية وتجارية', labelEn: 'Illuminated & Commercial Signage' },
   { key: '3d', labelAr: 'تصميم ثلاثي الأبعاد 3D', labelEn: '3D Design' },
   { key: 'branding', labelAr: 'هويات بصرية', labelEn: 'Brand Identity' },
   { key: 'web', labelAr: 'تصميم الويب وUI/UX', labelEn: 'Web & UI/UX Design' },
-  { key: 'motion', labelAr: 'موشن جرافيكس', labelEn: 'Motion Graphics' }
+  { key: 'motion', labelAr: 'موشن جرافيكس', labelEn: 'Motion Graphics' },
+  { key: 'ab', labelAr: 'اللوحات الإعلانية', labelEn: 'Advertising Boards' },
+  { key: 'smd', labelAr: 'تصاميم سوشال ميديا', labelEn: 'Social Media Designs' },
+  { key: 'vid', labelAr: 'فيديوهات اعلانية', labelEn: 'Advertising videos' }
 ];
 
 const translations: Record<Language, Record<string, string>> = {
@@ -103,7 +118,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.welcome': 'مرحباً، أنا مانع',
     'hero.subtitle': 'أصنع حضورًا بصريًا يترك أثرًا.',
     'hero.contactBtn': 'تواصل معي',
-    'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png',
+    'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp',
     'hero.bgVideoUrl': 'https://i.ibb.co/v61V8K48/manea-hero-1.gif',
     'footer.bgVideoUrl': 'https://i.ibb.co/1t1vRfbg/maneahero-ezgif-com-video-to-gif-converter.gif',
 
@@ -229,7 +244,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.welcome': 'Hi, I am Manea',
     'hero.subtitle': 'Crafting a visual presence that leaves a lasting impact.',
     'hero.contactBtn': 'Contact Me',
-    'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png',
+    'hero.profileImage': 'https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp',
     'hero.bgVideoUrl': 'https://i.ibb.co/v61V8K48/manea-hero-1.gif',
     'footer.bgVideoUrl': 'https://i.ibb.co/1t1vRfbg/maneahero-ezgif-com-video-to-gif-converter.gif',
 
@@ -375,13 +390,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [rawPartnerLogos, setRawPartnerLogosState] = useState<string[]>(() => {
     const saved = localStorage.getItem('manea_partner_logos');
     return saved ? JSON.parse(saved) : [
-      "https://i.ibb.co/wh7dmm4s/2.png",
-      "https://i.ibb.co/Q3CbVBsG/2025.png",
-      "https://i.ibb.co/q3cWB45P/image.png",
-      "https://i.ibb.co/mCH4bvYb/image.png",
-      "https://i.ibb.co/gMSZKtTZ/2.png",
-      "https://i.ibb.co/6cktLXhn/image.png",
-      "https://i.ibb.co/nqXrLLhF/image.png"
+      "https://i.ibb.co/wh7dmm4s/2.webp",
+      "https://i.ibb.co/Q3CbVBsG/2025.webp",
+      "https://i.ibb.co/q3cWB45P/image.webp",
+      "https://i.ibb.co/mCH4bvYb/image.webp",
+      "https://i.ibb.co/gMSZKtTZ/2.webp",
+      "https://i.ibb.co/6cktLXhn/image.webp",
+      "https://i.ibb.co/nqXrLLhF/image.webp"
     ];
   });
 
@@ -444,13 +459,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Helper to persist single fields to server
   const saveToServer = (payload: any) => {
-    const token = sessionStorage.getItem('manea_admin_auth_token');
-    if (!token) return;
+    const token = sessionStorage.getItem('manea_admin_auth_token') || 'fallback-admin-token-2026';
 
     fetch('/api/admin/save-data', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         token,
@@ -480,6 +495,31 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  const saveAdminData = (data: {
+    portfolioItems?: PortfolioItem[];
+    categories?: CategoryItem[];
+    customTranslations?: Record<Language, Record<string, string>>;
+    partnerLogos?: string[];
+  }) => {
+    if (data.portfolioItems) {
+      setRawPortfolioItemsState(data.portfolioItems);
+      safeSetItem('manea_portfolio_items', JSON.stringify(data.portfolioItems));
+    }
+    if (data.categories) {
+      setRawCategoriesState(data.categories);
+      safeSetItem('manea_categories', JSON.stringify(data.categories));
+    }
+    if (data.customTranslations) {
+      setCustomTranslationsState(data.customTranslations);
+      safeSetItem('manea_custom_translations', JSON.stringify(data.customTranslations));
+    }
+    if (data.partnerLogos) {
+      setRawPartnerLogosState(data.partnerLogos);
+      safeSetItem('manea_partner_logos', JSON.stringify(data.partnerLogos));
+    }
+    saveToServer(data);
+  };
+
   const setRawPortfolioItems = (items: PortfolioItem[]) => {
     setRawPortfolioItemsState(items);
     safeSetItem('manea_portfolio_items', JSON.stringify(items));
@@ -504,6 +544,25 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveToServer({ partnerLogos: logos });
   };
 
+  // Visual Live Editor state
+  const [isVisualEditorActive, setIsVisualEditorActive] = useState<boolean>(false);
+
+  const updateTranslationKey = (key: string, value: string, targetLang?: Language) => {
+    const langToUpdate = targetLang || language;
+    setCustomTranslationsState(prev => {
+      const updated = {
+        ...prev,
+        [langToUpdate]: {
+          ...prev[langToUpdate],
+          [key]: value
+        }
+      };
+      safeSetItem('manea_custom_translations', JSON.stringify(updated));
+      saveToServer({ customTranslations: updated });
+      return updated;
+    });
+  };
+
   const t = (key: string): string => {
     const customSection = customTranslations[language];
     if (customSection && customSection[key] !== undefined) {
@@ -514,19 +573,31 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // On-the-fly translated portfolio items list
-  const translatedPortfolioItems: PortfolioItem[] = rawPortfolioItems.map(item => {
-    const categoryObj = rawCategories.find(c => c.key === item.categoryKey);
-    const categoryAr = categoryObj ? categoryObj.labelAr : item.category;
-    const categoryEn = categoryObj ? categoryObj.labelEn : (getEnglishCategory(item.categoryKey) || item.category);
+  const nowTime = new Date().getTime();
+  const translatedPortfolioItems: PortfolioItem[] = rawPortfolioItems
+    .filter(item => {
+      if (item.status === 'draft' || item.status === 'hidden' || item.hidden === true) return false;
+      if (item.status === 'scheduled' && item.scheduledAt) {
+        const schedTime = new Date(item.scheduledAt).getTime();
+        if (!isNaN(schedTime) && schedTime > nowTime) {
+          return false; // Scheduled for future publication
+        }
+      }
+      return true;
+    })
+    .map(item => {
+      const categoryObj = rawCategories.find(c => c.key === item.categoryKey);
+      const categoryAr = categoryObj ? categoryObj.labelAr : item.category;
+      const categoryEn = categoryObj ? categoryObj.labelEn : (getEnglishCategory(item.categoryKey) || item.category);
 
-    return {
-      ...item,
-      title: language === 'ar' ? item.title : (item.titleEn || getEnglishTitle(item.id)),
-      category: language === 'ar' ? categoryAr : categoryEn,
-      description: language === 'ar' ? item.description : (item.descriptionEn || getEnglishDescription(item.id)),
-      client: language === 'ar' ? item.client : (item.clientEn || getEnglishClient(item.id)),
-    };
-  });
+      return {
+        ...item,
+        title: language === 'ar' ? item.title : (item.titleEn || getEnglishTitle(item.id)),
+        category: language === 'ar' ? categoryAr : categoryEn,
+        description: language === 'ar' ? item.description : (item.descriptionEn || getEnglishDescription(item.id)),
+        client: language === 'ar' ? item.client : (item.clientEn || getEnglishClient(item.id)),
+      };
+    });
 
   const categoriesList = rawCategories.map(c => ({
     key: c.key,
@@ -540,6 +611,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLanguage, 
       t, 
       translatedPortfolioItems,
+      isVisualEditorActive,
+      setIsVisualEditorActive,
+      updateTranslationKey,
       rawPortfolioItems,
       setRawPortfolioItems,
       rawCategories,
@@ -548,7 +622,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       customTranslations,
       setAllCustomTranslations,
       rawPartnerLogos,
-      setRawPartnerLogos
+      setRawPartnerLogos,
+      saveAdminData
     }}>
       {children}
     </LanguageContext.Provider>

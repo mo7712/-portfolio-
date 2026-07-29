@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface ManeaLoaderProps {
-  onComplete: () => void;
+  onComplete?: () => void;
 }
 
 const letters = [
@@ -100,7 +100,7 @@ export default function ManeaLoader({ onComplete }: ManeaLoaderProps) {
       setShowServiceTitles(true);
       setIsPortalTriggered(true);
       const quickTimeout = setTimeout(() => {
-        onComplete();
+        if (onComplete) onComplete();
       }, 500);
       return () => clearTimeout(quickTimeout);
     }
@@ -122,7 +122,7 @@ export default function ManeaLoader({ onComplete }: ManeaLoaderProps) {
       } catch (e) {
         // Ignore quota/sandbox storage exceptions
       }
-      onComplete();
+      if (onComplete) onComplete();
     }, 2400);
 
     return () => {

@@ -1,0 +1,18 @@
+{
+  "short_name": "Manea Graphics",
+  "name": "Manea Graphics | مانع جرافيكس - استوديو التصميم والهويات البصرية و3D",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1D1031",
+  "theme_color": "#1D1031",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar"
+}

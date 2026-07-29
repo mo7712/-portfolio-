@@ -1,15 +1,21 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence, useSpring, useInView } from 'motion/react';
 import Lenis from 'lenis';
-import { Instagram, Facebook, MessageCircle, Phone, Mail, MapPin, Megaphone, Box, Sparkles, Award, Share2, Video, Globe, Brain, Target, PenTool, Palette, Grid, Compass, Ruler, Layers, Menu, X, Home, User, Briefcase, Folder, Play, Pause } from 'lucide-react';
-import PortfolioGallery from './components/PortfolioGallery';
+import { Instagram, Facebook, MessageCircle, Phone, Mail, MapPin, Megaphone, Box, Sparkles, Award, Share2, Video, Globe, Brain, Target, PenTool, Palette, Grid, Compass, Ruler, Layers, Menu, X, Home, User, Briefcase, Folder, Play, Pause, ChevronUp, Shield } from 'lucide-react';
 import NotFound from './components/NotFound';
 import ManeaLoader from './components/ManeaLoader';
 import ContactForm from './components/ContactForm';
 import ServicesPinnedSection from './components/ServicesPinned';
-import AdminPanel from './components/AdminPanel';
 import { LazyImage, LazyVideo, LazyMedia } from './components/LazyMedia';
 import { useLanguage } from './context/LanguageContext';
+import { VisualEditorBar, EditableText, EditableImage } from './components/VisualEditor';
+import { useAnalytics } from './hooks/useAnalytics';
+import useSectionObserver from './hooks/useSectionObserver';
+import { Helmet } from 'react-helmet-async';
+import { getSEOMeta } from './constants/seo';
+
+import PortfolioGallery from './components/PortfolioGallery';
+import AdminPanel from './components/AdminPanel';
 
 // --- BRAND IDENTITY COMPONENTS ---
 
@@ -67,12 +73,18 @@ export const MonaLogo = ({ size = 240, className = "", id }: MonaLogoProps) => (
 
 interface ButtonProps {
   className?: string;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
-const ContactButton = ({ className = "" }: ButtonProps) => {
+const ContactButton = ({ className = "", onClick }: ButtonProps) => {
   const { t } = useLanguage();
+  const { trackCTA } = useAnalytics();
   return (
     <button 
+      onClick={(e) => {
+        trackCTA('Contact Button', 'Hero/About Section', { target: 'contact_section' });
+        if (onClick) onClick(e);
+      }}
       className={`relative rounded-full px-8 py-3 sm:px-10 sm:py-3.5 md:px-12 md:py-4 text-xs sm:text-sm md:text-base font-medium uppercase tracking-widest text-white transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer bg-[#F7941D] hover:bg-[#ffaa3a] border-2 border-[#F7941D] hover:border-[#ffaa3a] ${className}`}
     >
       {t('hero.contactBtn')}
@@ -80,10 +92,15 @@ const ContactButton = ({ className = "" }: ButtonProps) => {
   );
 };
 
-const LiveProjectButton = ({ className = "" }: ButtonProps) => {
+const LiveProjectButton = ({ className = "", onClick }: ButtonProps) => {
   const { t } = useLanguage();
+  const { trackCTA } = useAnalytics();
   return (
     <button 
+      onClick={(e) => {
+        trackCTA('View Details Button', 'Projects Section', { target: 'project_modal' });
+        if (onClick) onClick(e);
+      }}
       className={`rounded-full border-2 border-[#F7941D] text-[#F7941D] hover:text-white hover:bg-[#F7941D] px-8 py-3 sm:px-10 sm:py-3.5 text-sm sm:text-base font-medium uppercase tracking-widest transition-all duration-300 cursor-pointer ${className}`}
     >
       {t('portfolioGallery.viewDetails')}
@@ -107,6 +124,88 @@ const isVideoUrl = (url: string | undefined): boolean => {
   );
 };
 
+interface FrozenMediaImageProps {
+  src: string;
+  alt?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  isMediaPlaying?: boolean;
+  loading?: "eager" | "lazy";
+  decoding?: "async" | "auto" | "sync";
+  ariaHidden?: boolean;
+  referrerPolicy?: React.HTMLAttributeReferrerPolicy;
+}
+
+const FrozenMediaImage: React.FC<FrozenMediaImageProps> = ({
+  src,
+  alt = '',
+  className = '',
+  style,
+  isMediaPlaying = true,
+  loading,
+  decoding,
+  ariaHidden,
+  referrerPolicy,
+}) => {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isFrozen, setIsFrozen] = useState(!isMediaPlaying);
+
+  useEffect(() => {
+    if (!isMediaPlaying) {
+      const img = imgRef.current;
+      const canvas = canvasRef.current;
+      if (img && canvas) {
+        const captureFrame = () => {
+          try {
+            const ctx = canvas.getContext('2d');
+            if (ctx && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              setIsFrozen(true);
+              return;
+            }
+          } catch (e) {
+            // Fallback: keep img visible if cross-origin canvas fails
+          }
+          setIsFrozen(false);
+        };
+
+        if (img.complete && img.naturalWidth > 0) {
+          captureFrame();
+        } else {
+          img.onload = captureFrame;
+        }
+      }
+    } else {
+      setIsFrozen(false);
+    }
+  }, [isMediaPlaying, src]);
+
+  return (
+    <>
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        loading={loading}
+        decoding={decoding}
+        aria-hidden={ariaHidden ? "true" : undefined}
+        referrerPolicy={referrerPolicy}
+        className={`${className} ${isFrozen ? 'hidden' : 'block'}`}
+        style={style}
+      />
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={`${className} ${isFrozen ? 'block' : 'hidden'}`}
+        style={style}
+      />
+    </>
+  );
+};
+
 const renderMotionMedia = (url: string, delay: number) => {
   return (
     <LazyMedia
@@ -123,6 +222,13 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
   const videoUrl = t('hero.bgVideoUrl') || 'https://i.ibb.co/v61V8K48/manea-hero-1.gif';
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const blob1Ref = useRef<HTMLDivElement>(null);
+  const blob2Ref = useRef<HTMLDivElement>(null);
+
+  const animFrameRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
+  const accumulatedTimeRef = useRef<number>(0);
+
   useEffect(() => {
     if (videoRef.current) {
       if (isMediaPlaying) {
@@ -133,6 +239,54 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
     }
   }, [isMediaPlaying]);
 
+  useEffect(() => {
+    if (!isMediaPlaying) {
+      if (animFrameRef.current !== null) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+      lastTimeRef.current = null;
+      return;
+    }
+
+    const animate = (currentTime: number) => {
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = currentTime;
+      }
+      const delta = currentTime - lastTimeRef.current;
+      lastTimeRef.current = currentTime;
+      accumulatedTimeRef.current += delta;
+
+      const tSec = accumulatedTimeRef.current * 0.001;
+
+      if (blob1Ref.current) {
+        const x1 = Math.sin(tSec * 0.5) * 40;
+        const y1 = Math.cos(tSec * 0.4) * 30;
+        const scale1 = 1 + Math.sin(tSec * 0.3) * 0.08;
+        blob1Ref.current.style.transform = `translate3d(${x1}px, ${y1}px, 0) scale(${scale1})`;
+      }
+
+      if (blob2Ref.current) {
+        const x2 = Math.cos(tSec * 0.4) * 45;
+        const y2 = Math.sin(tSec * 0.5) * 35;
+        const scale2 = 1 + Math.cos(tSec * 0.3) * 0.08;
+        blob2Ref.current.style.transform = `translate3d(${x2}px, ${y2}px, 0) scale(${scale2})`;
+      }
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animFrameRef.current !== null) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+      lastTimeRef.current = null;
+    };
+  }, [isMediaPlaying]);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none bg-[#110724]">
       {/* Continuous lightweight ambient looping background video / GIF */}
@@ -141,7 +295,7 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
           <video
             ref={videoRef}
             src={videoUrl}
-            autoPlay={isMediaPlaying}
+            autoPlay
             loop
             muted
             playsInline
@@ -149,22 +303,18 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
             onPlay={(e) => {
               if (!isMediaPlaying) e.currentTarget.pause();
             }}
-            className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
-              isMediaPlaying ? 'opacity-40' : 'opacity-0'
-            }`}
+            className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-40 transition-opacity duration-700 pointer-events-none"
             style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
           />
         ) : (
-          <img
+          <FrozenMediaImage
             src={videoUrl}
-            alt=""
+            isMediaPlaying={isMediaPlaying}
             loading="eager"
             decoding="async"
-            aria-hidden="true"
+            ariaHidden={true}
             referrerPolicy="no-referrer"
-            className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
-              isMediaPlaying ? 'opacity-45' : 'opacity-0'
-            }`}
+            className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-45 transition-opacity duration-700 pointer-events-none"
             style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
           />
         )
@@ -173,9 +323,15 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
       {/* Dark Purple Gradient Overlay to guarantee high text contrast and legibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#1D1031]/40 via-transparent to-[#1D1031]/95 z-10" />
 
-      {/* Ambient glowing blobs with drift animations behind the video for soft depth glow */}
-      <div className="absolute top-[-20%] left-[-15%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[#4C3475]/15 to-transparent blur-[130px] animate-blob-drift" />
-      <div className="absolute bottom-[-10%] right-[-15%] w-[65%] h-[65%] rounded-full bg-gradient-to-tr from-[#6C4EA2]/12 to-transparent blur-[120px] animate-blob-drift-reverse" />
+      {/* Ambient glowing blobs with drift animations driven by rAF behind the video for soft depth glow */}
+      <div 
+        ref={blob1Ref}
+        className="absolute top-[-20%] left-[-15%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[#4C3475]/15 to-transparent blur-[130px] will-change-transform" 
+      />
+      <div 
+        ref={blob2Ref}
+        className="absolute bottom-[-10%] right-[-15%] w-[65%] h-[65%] rounded-full bg-gradient-to-tr from-[#6C4EA2]/12 to-transparent blur-[120px] will-change-transform" 
+      />
 
       {/* SVG Waves Container on top of the video (z-20) */}
       <div className="absolute inset-0 opacity-25 select-none overflow-hidden z-20">
@@ -303,7 +459,7 @@ const StaggerItem = ({ children, className = "" }: { children: React.ReactNode, 
       y: 0,
       transition: {
         duration: 0.8,
-        ease: [0.25, 0.1, 0.25, 1],
+        ease: [0.25, 0.1, 0.25, 1] as const,
       }
     }
   };
@@ -339,7 +495,7 @@ const CinematicTitle = ({ text }: { text: string; key?: string }) => {
       opacity: 1,
       transition: {
         duration: 1.3,
-        ease: [0.16, 1, 0.3, 1], // Cinematic ultra-smooth easeOutExpo
+        ease: [0.16, 1, 0.3, 1] as const, // Cinematic ultra-smooth easeOutExpo
       },
     },
   };
@@ -349,13 +505,13 @@ const CinematicTitle = ({ text }: { text: string; key?: string }) => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="text-[clamp(2.25rem,10vw,7.5rem)] font-black uppercase tracking-tight leading-none text-center flex flex-wrap justify-center gap-x-3 sm:gap-x-4 gap-y-1 sm:gap-y-2 select-none"
+      className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[7rem] 2xl:text-[8rem] font-black uppercase tracking-tight leading-[1.08] sm:leading-none text-center flex flex-wrap justify-center gap-x-2.5 xs:gap-x-3.5 sm:gap-x-5 gap-y-1 sm:gap-y-2 select-none px-2"
     >
       {words.map((word, i) => (
-        <span key={i} className="inline-block overflow-hidden py-4 px-2 -my-4 -mx-2">
+        <span key={i} className="inline-block overflow-visible py-1 xs:py-2 px-0.5 xs:px-1 -my-1 -mx-0.5">
           <motion.span 
             variants={wordVariants} 
-            className="inline-block bg-gradient-to-b from-white via-white to-gray-400 bg-clip-text text-transparent pb-2"
+            className="inline-block bg-gradient-to-b from-white via-white to-gray-400 bg-clip-text text-transparent pb-1 sm:pb-2 leading-normal drop-shadow-sm"
           >
             {word}
           </motion.span>
@@ -400,7 +556,7 @@ const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => 
       scale: 1,
       transition: {
         duration: 0.75,
-        ease: [0.22, 1, 0.36, 1],
+        ease: [0.22, 1, 0.36, 1] as const,
       },
     },
   };
@@ -414,7 +570,7 @@ const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => 
       className={className}
     >
       {lines.map((line, lineIdx) => (
-        <span key={lineIdx} className="block whitespace-nowrap">
+        <span key={lineIdx} className="block whitespace-normal sm:whitespace-nowrap leading-relaxed py-0.5">
           {line.split(' ').map((word, wordIdx) => (
             <motion.span
               key={`${lineIdx}-${wordIdx}`}
@@ -481,7 +637,7 @@ const Magnet = ({ children, padding = 150, strength = 3, className = "" }: Magne
   );
 };
 
-interface WordProps {
+interface ScrollWordProps {
   key?: React.Key;
   word: string;
   index: number;
@@ -489,18 +645,30 @@ interface WordProps {
   progress: any;
 }
 
-const Word = ({ word, index, total, progress }: WordProps) => {
-  const start = index / total;
-  const end = start + (1 / total);
-  const opacity = useTransform(progress, [start, end], [0.2, 1]);
+const ScrollWord = ({ word, index, total, progress }: ScrollWordProps) => {
+  // Calculate exact scroll window for each word with slight overlap for fluid reveal
+  const step = 0.88 / Math.max(1, total);
+  const start = index * step;
+  const end = Math.min(1, start + step * 1.6);
+
+  const opacity = useTransform(progress, [start, end], [0.15, 1]);
+  const y = useTransform(progress, [start, end], [10, 0]);
+  const filter = useTransform(progress, [start, end], ['blur(5px)', 'blur(0px)']);
+  const scale = useTransform(progress, [start, end], [0.93, 1]);
 
   return (
-    <span className="relative inline-block ml-[0.3em]">
-      <span className="invisible">{word}</span>
-      <motion.span className="absolute top-0 right-0" style={{ opacity }}>
-        {word}
-      </motion.span>
-    </span>
+    <motion.span
+      className="inline-block select-none"
+      style={{
+        opacity,
+        y,
+        filter,
+        scale,
+        willChange: 'opacity, transform, filter',
+      }}
+    >
+      {word}
+    </motion.span>
   );
 };
 
@@ -513,20 +681,23 @@ const AnimatedText = ({ text, className = "" }: AnimatedTextProps) => {
   const containerRef = useRef<HTMLParagraphElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ['start 0.8', 'end 0.2']
+    offset: ['start 0.85', 'end 0.35'],
   });
 
   const words = text.split(' ');
-  
+
   return (
-    <p ref={containerRef} className={`relative flex flex-wrap justify-center ${className}`}>
+    <p
+      ref={containerRef}
+      className={`relative flex flex-wrap justify-center gap-x-[0.35em] gap-y-[0.2em] leading-relaxed ${className}`}
+    >
       {words.map((word, i) => (
-        <Word 
-          key={i} 
-          word={word} 
-          index={i} 
-          total={words.length} 
-          progress={scrollYProgress} 
+        <ScrollWord
+          key={`${word}-${i}`}
+          word={word}
+          index={i}
+          total={words.length}
+          progress={scrollYProgress}
         />
       ))}
     </p>
@@ -602,7 +773,8 @@ const serviceItemVariants = {
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
-  const { language, setLanguage, t, dir, translatedPortfolioItems, rawPartnerLogos } = useLanguage();
+  const { language, setLanguage, t, dir, translatedPortfolioItems, rawPartnerLogos, isVisualEditorActive } = useLanguage();
+  const { trackCTA } = useAnalytics();
   const partnerLogos = rawPartnerLogos;
   const [scrollOffset, setScrollOffset] = useState(0);
   const [activeView, setActiveView] = useState<'home' | 'portfolio' | '404'>('home');
@@ -610,6 +782,9 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMediaPlaying, setIsMediaPlaying] = useState(true);
+
+  // Active section observer for navigation indicator
+  const currentSection = useSectionObserver(['hero', 'about', 'services', 'projects', 'partners', 'contact']);
 
   // Synchronize global media playback (pause/play all videos & toggle body.media-paused class)
   useEffect(() => {
@@ -654,10 +829,16 @@ export default function App() {
     setIsMediaPlaying((prev) => !prev);
   };
 
-  // Check URL path on initial mount for 404 routing
+  // Check URL path, query parameters, and hash on initial mount
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
-    if (path === '/404' || (path !== '/' && path !== '' && !path.startsWith('/#'))) {
+    const search = window.location.search.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+
+    if (path === '/admin' || search.includes('admin') || hash.includes('admin')) {
+      setIsAdminOpen(true);
+      setActiveView('home');
+    } else if (path === '/404' || (path !== '/' && path !== '' && !path.startsWith('/#'))) {
       setActiveView('404');
     }
   }, []);
@@ -674,18 +855,27 @@ export default function App() {
     };
   }, [mobileMenuOpen]);
 
-  // Global keyboard shortcut and secret sequence "7712" typing code trigger to open Admin Panel
+  // Global keyboard shortcut (ESC to close overlays, secret sequence "7712" or Alt+A / Ctrl+Shift+A for Admin Panel)
   useEffect(() => {
     let typedBuffer = '';
+    let bufferTimeout: any = null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Keep standard Ctrl + Shift + A shortcut too, just in case
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+      // 1. ESC key closes mobile menu, admin panel, or any open overlays
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        setMobileMenuOpen(false);
+        setIsAdminOpen(false);
+        return;
+      }
+
+      // 2. Keyboard shortcuts: Ctrl + Shift + A or Alt + A
+      if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') || (e.altKey && e.key.toLowerCase() === 'a')) {
         e.preventDefault();
         setIsAdminOpen(true);
         return;
       }
 
-      // 2. Ignore key inputs if the user is typing inside an input/textarea
+      // 3. Ignore key inputs if the user is typing inside an input/textarea
       const target = e.target as HTMLElement;
       if (
         target && 
@@ -696,26 +886,30 @@ export default function App() {
         return;
       }
 
-      // 3. Keep track of typed number keys
+      // 4. Keep track of typed number keys for secret admin access "7712"
       if (/^[0-9]$/.test(e.key)) {
+        clearTimeout(bufferTimeout);
         typedBuffer += e.key;
-        // Keep only the last 4 typed digits
         if (typedBuffer.length > 4) {
           typedBuffer = typedBuffer.slice(-4);
         }
         
-        // If they type 7712, open the admin login modal
+        // If they type 7712, open the admin panel
         if (typedBuffer === '7712') {
           typedBuffer = '';
           setIsAdminOpen(true);
         }
-      } else {
-        // Reset sequence on other non-number keys (or just ignore them, but better reset)
-        typedBuffer = '';
+
+        bufferTimeout = setTimeout(() => {
+          typedBuffer = '';
+        }, 3000);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(bufferTimeout);
+    };
   }, []);
 
   // Global scroll progress for the top window progress bar
@@ -736,6 +930,19 @@ export default function App() {
     target: aboutRef,
     offset: ["start end", "end start"]
   });
+
+  const aboutTitleRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: aboutTitleScrollProgress } = useScroll({
+    target: aboutTitleRef,
+    offset: ["start 90%", "start 40%"]
+  });
+  const aboutTitleClip = useTransform(
+    aboutTitleScrollProgress,
+    [0, 1],
+    dir === 'rtl'
+      ? ["inset(0% 0% 0% 100%)", "inset(0% 0% 0% 0%)"]
+      : ["inset(0% 100% 0% 0%)", "inset(0% 0% 0% 0%)"]
+  );
 
   const projectsTitleRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress: projectsTitleScrollProgress } = useScroll({
@@ -779,14 +986,19 @@ export default function App() {
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     );
 
+    const handleNativeScroll = () => {
+      setScrollOffset(window.scrollY);
+    };
+
     if (isMobileDevice) {
-      const handleMobileScroll = () => setScrollOffset(window.scrollY);
-      window.addEventListener('scroll', handleMobileScroll, { passive: true });
+      window.addEventListener('scroll', handleNativeScroll, { passive: true });
       (window as any).lenis = null;
       return () => {
-        window.removeEventListener('scroll', handleMobileScroll);
+        window.removeEventListener('scroll', handleNativeScroll);
       };
     }
+
+    window.addEventListener('scroll', handleNativeScroll, { passive: true });
 
     const lenis = new Lenis({
       duration: 1.2,
@@ -814,6 +1026,7 @@ export default function App() {
 
     return () => {
       cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', handleNativeScroll);
       lenis.destroy();
       (window as any).lenis = null;
     };
@@ -866,8 +1079,37 @@ export default function App() {
   const row1 = [...marqueeGifs.slice(0, 7), ...marqueeGifs.slice(0, 7)];
   const row2 = [...marqueeGifs.slice(7, 14), ...marqueeGifs.slice(7, 14)];
 
+  const seo = getSEOMeta(language);
+
   return (
     <div dir={dir} className="min-h-screen bg-[#3A2A56] text-white font-sans overflow-x-clip selection:bg-[#F7941D] selection:text-white">
+      {isVisualEditorActive && (
+        <VisualEditorBar onOpenAdmin={() => setIsAdminOpen(true)} />
+      )}
+      <Helmet>
+        <html lang={language} dir={dir} />
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <meta name="keywords" content={seo.keywords} />
+        <meta name="author" content={seo.author} />
+        <meta name="theme-color" content={seo.themeColor} />
+
+        {/* Open Graph Meta Tags */}
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.description} />
+        <meta property="og:type" content={seo.ogType} />
+        <meta property="og:url" content={seo.url} />
+        <meta property="og:image" content={seo.ogImage} />
+        <meta property="og:site_name" content={seo.siteName} />
+        <meta property="og:locale" content={seo.locale} />
+
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content={seo.twitterCard} />
+        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:description" content={seo.description} />
+        <meta name="twitter:image" content={seo.ogImage} />
+        {seo.twitterSite && <meta name="twitter:site" content={seo.twitterSite} />}
+      </Helmet>
       
       <AnimatePresence mode="wait">
         {isLoading && (
@@ -888,24 +1130,26 @@ export default function App() {
             backgroundColor: progressBarColor,
           }}
         />
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" onExitComplete={() => window.scrollTo(0, 0)}>
           {activeView === 'portfolio' ? (
             <motion.div
               key="portfolio"
-              initial={{ opacity: 0, y: 35 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             >
-              <PortfolioGallery onBackToHome={() => setActiveView('home')} />
+              <React.Suspense fallback={<ManeaLoader />}>
+                <PortfolioGallery onBackToHome={() => setActiveView('home')} />
+              </React.Suspense>
             </motion.div>
           ) : activeView === '404' ? (
             <motion.div
               key="404"
-              initial={{ opacity: 0, y: 35 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             >
               <NotFound 
                 onGoHome={() => setActiveView('home')} 
@@ -917,22 +1161,22 @@ export default function App() {
           ) : (
             <motion.div
               key="home"
-              initial={{ opacity: 0, y: 35 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             >
               <>
               {/* 1. HERO SECTION */}
-          <section className="min-h-[640px] sm:min-h-[740px] md:min-h-screen md:h-screen flex flex-col overflow-x-clip relative">
+          <section id="hero" className="min-h-[100dvh] h-auto sm:min-h-[700px] md:min-h-screen md:h-screen flex flex-col justify-between overflow-x-clip relative pt-16 sm:pt-20 md:pt-24 pb-4 sm:pb-6 md:pb-8">
             {/* Subtle animated wavy background with purple brand identity */}
             <HeroWavyBackground isMediaPlaying={isMediaPlaying} />
 
             <FadeIn delay={0} y={-20} className="fixed top-0 left-0 right-0 z-50">
-              <nav className={`w-full transition-all duration-500 border-b ${
+              <nav className={`w-full transition-all duration-500 ease-in-out border-b ${
                 scrollOffset > 20
-                  ? 'bg-[#180C2E]/92 backdrop-blur-xl border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-2 sm:py-2.5'
-                  : 'bg-gradient-to-b from-[#180C2E]/80 via-[#180C2E]/40 to-transparent backdrop-blur-sm border-white/5 py-3 sm:py-4'
+                  ? 'bg-[#180C2E]/90 backdrop-blur-2xl border-[#F7941D]/20 sm:border-white/15 shadow-[0_12px_35px_rgba(0,0,0,0.55)] py-2 sm:py-2.5'
+                  : 'bg-gradient-to-b from-[#180C2E]/85 via-[#180C2E]/35 to-transparent backdrop-blur-xs border-white/5 shadow-none py-3 sm:py-4'
               }`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-10 lg:px-14 flex justify-between items-center text-gray-300 font-medium tracking-wide">
                   {/* Brand Logo & Name */}
@@ -968,51 +1212,95 @@ export default function App() {
                       size={46} 
                       className={`w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] shrink-0 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(247,148,29,0.5)] transition-all duration-300 ${t('nav.logoUrl') ? 'hidden' : ''}`} 
                     />
-                    <span className="font-extrabold bg-gradient-to-r from-[#F7941D] via-amber-200 to-white bg-clip-text text-transparent text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">
-                      {t('nav.brandName')}
-                    </span>
+                    <EditableText textKey="nav.brandName" fallbackText="Manea" className="inline-block">
+                      <span className="font-extrabold bg-gradient-to-r from-[#F7941D] via-amber-200 to-white bg-clip-text text-transparent text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">
+                        {t('nav.brandName')}
+                      </span>
+                    </EditableText>
                   </div>
                   
-                  {/* Desktop Navigation (>= 768px) with Small-to-Medium Compact Typo Scale */}
+                  {/* Desktop Navigation (>= 768px) with Active Section Observer Indicators */}
                   <div className="hidden md:flex items-center gap-1 lg:gap-3 text-xs md:text-sm font-medium">
                     <a 
                       href="#about" 
                       onClick={(e) => handleScrollTo(e, 'about')} 
-                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
+                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                        currentSection === 'about'
+                          ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
+                          : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
+                      }`}
                     >
-                      <span>{t('nav.about')}</span>
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
+                      <EditableText textKey="nav.about" fallbackText="عني">
+                        <span>{t('nav.about')}</span>
+                      </EditableText>
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                        currentSection === 'about' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
+                      }`} />
                     </a>
                     <a 
                       href="#services" 
                       onClick={(e) => handleScrollTo(e, 'services')} 
-                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
+                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                        currentSection === 'services'
+                          ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
+                          : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
+                      }`}
                     >
-                      <span>{t('nav.services')}</span>
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
+                      <EditableText textKey="nav.services" fallbackText="الخدمات">
+                        <span>{t('nav.services')}</span>
+                      </EditableText>
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                        currentSection === 'services' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
+                      }`} />
                     </a>
                     <a 
                       href="#projects" 
                       onClick={(e) => handleScrollTo(e, 'projects')} 
-                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
+                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                        currentSection === 'projects'
+                          ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
+                          : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
+                      }`}
                     >
-                      <span>{t('nav.projects')}</span>
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
+                      <EditableText textKey="nav.projects" fallbackText="المشاريع">
+                        <span>{t('nav.projects')}</span>
+                      </EditableText>
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                        currentSection === 'projects' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
+                      }`} />
                     </a>
                     <button 
-                      onClick={() => setActiveView('portfolio')} 
-                      className="relative group px-3 py-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/[0.05] transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5"
+                      onClick={() => {
+                        trackCTA('Header Portfolio Link', 'Header Nav', { view: 'portfolio' });
+                        setActiveView('portfolio');
+                      }} 
+                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                        (activeView as string) === 'portfolio'
+                          ? 'text-[#F7941D] bg-[#F7941D]/10'
+                          : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
+                      }`}
                     >
-                      <span>{t('nav.portfolio')}</span>
+                      <EditableText textKey="nav.portfolio" fallbackText="معرض الأعمال">
+                        <span>{t('nav.portfolio')}</span>
+                      </EditableText>
                       <span className="w-1.5 h-1.5 rounded-full bg-[#F7941D] animate-pulse" />
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full group-hover:w-2/3 transition-all duration-300 shadow-[0_0_8px_#F7941D]" />
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                        (activeView as string) === 'portfolio' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
+                      }`} />
                     </button>
                     <a 
                       href="#contact" 
-                      onClick={(e) => handleScrollTo(e, 'contact')} 
-                      className="relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-[0_0_15px_rgba(247,148,29,0.3)] hover:shadow-[0_0_25px_rgba(247,148,29,0.6)] hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2"
+                      onClick={(e) => {
+                        trackCTA('Header Contact CTA', 'Header Nav', { target: 'contact' });
+                        handleScrollTo(e, 'contact');
+                      }} 
+                      className={`relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-[0_0_15px_rgba(247,148,29,0.3)] hover:shadow-[0_0_25px_rgba(247,148,29,0.6)] hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2 ${
+                        currentSection === 'contact' ? 'ring-2 ring-[#F7941D] ring-offset-2 ring-offset-[#180C2E]' : ''
+                      }`}
                     >
-                      <span>{t('nav.contact')}</span>
+                      <EditableText textKey="nav.contact" fallbackText="تواصل معي">
+                        <span>{t('nav.contact')}</span>
+                      </EditableText>
                     </a>
 
                     {/* Desktop Language Switcher */}
@@ -1020,6 +1308,7 @@ export default function App() {
                       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
                       className="relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 hover:border-[#F7941D]/50 bg-white/[0.04] hover:bg-[#F7941D]/15 text-xs font-mono font-bold uppercase text-gray-200 hover:text-white transition-all duration-300 cursor-pointer group shadow-sm shrink-0 ms-1"
                       title={language === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
+                      aria-label={language === 'ar' ? 'Switch language to English' : 'تغيير اللغة إلى العربية'}
                     >
                       <Globe size={13} className="text-[#F7941D] group-hover:rotate-180 transition-transform duration-500 shrink-0" />
                       <span className="font-mono text-xs shrink-0">{language === 'ar' ? 'EN' : 'عربي'}</span>
@@ -1033,6 +1322,7 @@ export default function App() {
                       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-200 shrink-0 transition-all duration-200 active:scale-95"
                       title={language === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
+                      aria-label={language === 'ar' ? 'Switch language to English' : 'تغيير اللغة إلى العربية'}
                     >
                       <Globe size={13} className="text-[#F7941D]" />
                       <span className="font-mono text-[11px]">{language === 'ar' ? 'EN' : 'عربي'}</span>
@@ -1157,7 +1447,7 @@ export default function App() {
                             setActiveView('portfolio');
                             setMobileMenuOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${activeView === 'portfolio' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group font-bold`}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${(activeView as string) === 'portfolio' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group font-bold`}
                         >
                           <Sparkles size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{t('nav.portfolio')}</span>
@@ -1168,7 +1458,7 @@ export default function App() {
                             setActiveView('404');
                             setMobileMenuOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${activeView === '404' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl ${(activeView as string) === '404' ? 'bg-[#F7941D]/20 border border-[#F7941D]/40 text-white' : 'bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white'} font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
                         >
                           <Compass size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{dir === 'rtl' ? 'صفحة 404' : '404 Page'}</span>
@@ -1192,13 +1482,14 @@ export default function App() {
                     </div>
 
                     {/* Drawer Footer */}
-                    <div className="pt-6 border-t border-white/10 space-y-4">
+                    <div className="pt-6 border-t border-white/10 space-y-3">
                       {/* Language Toggle inside drawer */}
                       <button
                         onClick={() => {
                           setLanguage(language === 'ar' ? 'en' : 'ar');
                         }}
                         className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors cursor-pointer"
+                        aria-label={language === 'ar' ? 'Switch language to English' : 'تغيير اللغة إلى العربية'}
                       >
                         <div className="flex items-center gap-2">
                           <Globe size={16} className="text-[#F7941D]" />
@@ -1217,6 +1508,7 @@ export default function App() {
                           rel="noopener noreferrer"
                           className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
                           title="WhatsApp"
+                          aria-label="WhatsApp Contact"
                         >
                           <MessageCircle size={18} />
                         </a>
@@ -1224,6 +1516,7 @@ export default function App() {
                           href="tel:+967771213038"
                           className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
                           title="Phone"
+                          aria-label={language === 'ar' ? 'الاتصال المباشر' : 'Direct Phone Call'}
                         >
                           <Phone size={18} />
                         </a>
@@ -1231,6 +1524,7 @@ export default function App() {
                           href="mailto:manea.izz2013@gmail.com"
                           className="p-2.5 rounded-full bg-white/5 hover:bg-[#F7941D]/20 hover:text-[#F7941D] transition-colors"
                           title="Email"
+                          aria-label={language === 'ar' ? 'إرسال بريد إلكتروني' : 'Send Email'}
                         >
                           <Mail size={18} />
                         </a>
@@ -1246,23 +1540,27 @@ export default function App() {
             </AnimatePresence>
 
         <div className="flex-grow flex flex-col justify-center items-center relative z-0">
-          <div className="w-full text-center mt-6 sm:mt-4 md:-mt-5">
-            <CinematicTitle key={language} text={t('hero.welcome')} />
+          <div className="w-full text-center mt-2 xs:mt-4 sm:mt-6 md:-mt-4 lg:-mt-8 px-2">
+            <EditableText textKey="hero.welcome" fallbackText="مرحباً، أنا مانع" className="w-full">
+              <CinematicTitle key={language} text={t('hero.welcome')} />
+            </EditableText>
           </div>
         </div>
 
-        <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20 flex justify-between items-end pb-7 sm:pb-8 md:pb-10 z-20 gap-4">
+        <div className="w-full max-w-7xl mx-auto px-3 xs:px-5 sm:px-10 md:px-14 lg:px-16 flex flex-row justify-between items-end pb-3 sm:pb-6 md:pb-8 z-20 gap-2 sm:gap-4">
           {/* Subtitle Text without box container - crisp, high-end typography */}
-          <div className="max-w-[320px] xs:max-w-[380px] sm:max-w-[500px] md:max-w-[620px]">
-            <BlurInText 
-              key={language}
-              text={t('hero.subtitle')}
-              className="font-extrabold tracking-tight sm:tracking-normal leading-relaxed text-[clamp(1.1rem,2vw,1.75rem)] text-start bg-gradient-to-r from-white via-amber-100 to-[#F7941D] bg-clip-text text-transparent drop-shadow-[0_4px_18px_rgba(247,148,29,0.4)]"
-            />
+          <div className="max-w-[44%] xs:max-w-[46%] sm:max-w-[480px] md:max-w-[600px] lg:max-w-[700px]">
+            <EditableText textKey="hero.subtitle" fallbackText="مصمم تجارب رقمية وهويات بصرية 3D" multiline className="w-full">
+              <BlurInText 
+                key={language}
+                text={t('hero.subtitle')}
+                className="font-extrabold tracking-tight sm:tracking-normal leading-tight xs:leading-snug sm:leading-relaxed text-[0.85rem] xs:text-[1rem] sm:text-[1.25rem] md:text-[1.5rem] lg:text-[1.75rem] text-start bg-gradient-to-r from-white via-amber-100 to-[#F7941D] bg-clip-text text-transparent"
+              />
+            </EditableText>
           </div>
 
           {/* Sleek, Compact Media Pause/Play Controller on the opposite side */}
-          <FadeIn delay={0.4} y={15}>
+          <FadeIn delay={0.4} y={15} className="shrink-0">
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -1271,7 +1569,7 @@ export default function App() {
                 ? (language === 'ar' ? 'إيقاف تشغيل الحركة والوسائط' : 'Pause motion graphics and videos') 
                 : (language === 'ar' ? 'تشغيل الحركة والوسائط' : 'Enable motion graphics and videos')
               }
-              className="relative group/media flex items-center gap-2 px-3.5 sm:px-4.5 py-2.5 sm:py-2.5 rounded-full bg-[#160B2C]/80 [@media(hover:hover)]:hover:bg-[#200D3A] active:bg-[#200D3A] border border-[#F7941D]/40 [@media(hover:hover)]:hover:border-[#F7941D] active:border-[#F7941D] text-white shadow-[0_4px_20px_rgba(247,148,29,0.25)] [@media(hover:hover)]:hover:shadow-[0_8px_30px_rgba(247,148,29,0.55)] active:shadow-[0_4px_15px_rgba(247,148,29,0.4)] backdrop-blur-2xl transition-all duration-300 cursor-pointer select-none ring-1 ring-white/10 touch-manipulation min-h-[44px] sm:min-h-[40px] before:absolute before:-inset-2 before:content-['']"
+              className="relative group/media flex flex-row flex-nowrap items-center justify-center min-w-[36px] xs:min-w-[100px] sm:min-w-0 gap-1 xs:gap-2 sm:gap-2.5 px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 sm:py-2.5 rounded-full bg-[#160B2C]/80 [@media(hover:hover)]:hover:bg-[#200D3A] active:bg-[#200D3A] border border-[#F7941D]/40 [@media(hover:hover)]:hover:border-[#F7941D] active:border-[#F7941D] text-white shadow-[0_4px_20px_rgba(247,148,29,0.25)] [@media(hover:hover)]:hover:shadow-[0_8px_30px_rgba(247,148,29,0.55)] active:shadow-[0_4px_15px_rgba(247,148,29,0.4)] backdrop-blur-2xl transition-all duration-300 cursor-pointer select-none ring-1 ring-white/10 touch-manipulation min-h-[38px] xs:min-h-[42px] sm:min-h-[40px] before:absolute before:-inset-2 before:content-['']"
               title={isMediaPlaying 
                 ? (language === 'ar' ? 'إيقاف تشغيل الفيديوهات والخلفيات المتحركة لتسريع وتخفيف الموقع' : 'Pause background media to speed up site') 
                 : (language === 'ar' ? 'تشغيل الفيديوهات والخلفيات المتحركة' : 'Resume background media')
@@ -1286,35 +1584,53 @@ export default function App() {
               </span>
 
               {/* Glowing LED Status Indicator */}
-              <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+              <span className="relative flex h-2 w-2 xs:h-2.5 xs:w-2.5 items-center justify-center shrink-0">
                 {isMediaPlaying ? (
                   <>
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F7941D] opacity-80" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F7941D] shadow-[0_0_8px_#F7941D]" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 xs:h-2 xs:w-2 bg-[#F7941D] shadow-[0_0_8px_#F7941D]" />
                   </>
                 ) : (
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 xs:h-2 xs:w-2 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
                 )}
               </span>
 
               {/* Icon & Equalizer */}
-              <div className="flex items-center gap-1.5 text-[#F7941D]">
-                {isMediaPlaying ? (
-                  <>
-                    <Pause size={13} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
-                    <div className="flex items-end gap-[2px] h-2.5 px-0.5 shrink-0">
-                      <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.1s] h-full" />
-                      <span className="w-[2px] bg-amber-300 rounded-full animate-bounce [animation-delay:0.3s] h-2/3" />
-                      <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.2s] h-4/5" />
-                    </div>
-                  </>
-                ) : (
-                  <Play size={13} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
-                )}
+              <div className="flex flex-row items-center gap-1 sm:gap-1.5 text-[#F7941D] shrink-0 justify-center">
+                <AnimatePresence mode="wait" initial={false}>
+                  {isMediaPlaying ? (
+                    <motion.div
+                      key="pause-icon"
+                      initial={{ opacity: 0, scale: 0.75, rotate: -15 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                      exit={{ opacity: 0, scale: 0.75, rotate: 15 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="flex items-center gap-1 sm:gap-1.5"
+                    >
+                      <Pause size={12} className="fill-[#F7941D] text-[#F7941D] shrink-0 sm:w-3.5 sm:h-3.5" />
+                      <div className="hidden xs:flex items-end gap-[2px] h-2.5 px-0.5 shrink-0">
+                        <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.1s] h-full" />
+                        <span className="w-[2px] bg-amber-300 rounded-full animate-bounce [animation-delay:0.3s] h-2/3" />
+                        <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.2s] h-4/5" />
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="play-icon"
+                      initial={{ opacity: 0, scale: 0.75, rotate: 15 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                      exit={{ opacity: 0, scale: 0.75, rotate: -15 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="flex items-center"
+                    >
+                      <Play size={12} className="fill-[#F7941D] text-[#F7941D] shrink-0 sm:w-3.5 sm:h-3.5" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Action Title */}
-              <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap text-white [@media(hover:hover)]:group-hover/media:text-[#F7941D] group-active/media:text-[#F7941D] transition-colors">
+              <span className="hidden xs:inline-block text-[10px] xs:text-[11px] sm:text-xs font-semibold whitespace-nowrap text-center text-white [@media(hover:hover)]:group-hover/media:text-[#F7941D] group-active/media:text-[#F7941D] transition-colors shrink-0">
                 {isMediaPlaying 
                   ? (language === 'ar' ? 'إيقاف الحركة' : 'Pause Motion')
                   : (language === 'ar' ? 'تشغيل الحركة' : 'Play Motion')
@@ -1324,7 +1640,7 @@ export default function App() {
           </FadeIn>
         </div>
 
-        <FadeIn delay={0.6} y={30} className="absolute left-1/2 -translate-x-1/2 bottom-0 z-10 w-[210px] xs:w-[250px] sm:w-[340px] md:w-[420px] lg:w-[500px]">
+        <FadeIn delay={0.6} y={30} className="absolute left-1/2 -translate-x-1/2 bottom-0 z-10 w-[150px] xs:w-[190px] sm:w-[300px] md:w-[380px] lg:w-[460px] xl:w-[510px] 2xl:w-[580px] pointer-events-none sm:pointer-events-auto">
           <Magnet>
             <motion.div
               animate={{
@@ -1338,8 +1654,11 @@ export default function App() {
               }}
               className="relative group"
             >
+              {/* Radial backlight glow behind 3D avatar */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#F7941D]/25 via-[#6C4EA2]/15 to-transparent blur-2xl sm:blur-3xl rounded-full transform scale-90 -z-10 pointer-events-none" />
+
               {(() => {
-                const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.png";
+                const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp";
                 if (isVideoUrl(profileImg)) {
                   return (
                     <video 
@@ -1356,10 +1675,10 @@ export default function App() {
                   );
                 }
                 return (
-                  <img 
-                    src={profileImg} 
-                    alt="مانع - صانع ثلاثي الأبعاد" 
-                    referrerPolicy="no-referrer"
+                  <EditableImage
+                    imageKey="hero.profileImage"
+                    src={profileImg}
+                    alt="مانع - صانع ثلاثي الأبعاد"
                     className="w-full h-auto object-contain drop-shadow-2xl rounded-[40px] md:rounded-[60px]"
                   />
                 );
@@ -1383,6 +1702,8 @@ export default function App() {
               key={i} 
               src={url} 
               alt="" 
+              width={420}
+              height={270}
               referrerPolicy="no-referrer"
               loading="lazy"
               decoding="async"
@@ -1402,6 +1723,8 @@ export default function App() {
               key={i} 
               src={url} 
               alt="" 
+              width={420}
+              height={270}
               referrerPolicy="no-referrer"
               loading="lazy"
               decoding="async"
@@ -1417,39 +1740,48 @@ export default function App() {
         {/* Decorative 3D Images with Smooth Parallax & Subtle Rotation */}
         <FadeIn delay={0.1} x={-80} y={0} duration={0.9} className="absolute top-[4%] right-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
           <motion.div style={{ y: yMoon, rotate: rotateMoon }}>
-            <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.png" alt="Video Editing 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.webp" alt="Video Editing 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
         
         <FadeIn delay={0.25} x={-80} y={0} duration={0.9} className="absolute bottom-[8%] right-[4%] w-[50px] xs:w-[75px] sm:w-[100px] md:w-[140px] lg:w-[180px] opacity-20 sm:opacity-100 pointer-events-none z-0">
           <motion.div style={{ y: yObj2, rotate: rotateObj2 }}>
-            <img src="https://i.ibb.co/F43mtR51/social-ads-v2.png" alt="Social Ads 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <img src="https://i.ibb.co/F43mtR51/social-ads-v2.webp" alt="Social Ads 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
         <FadeIn delay={0.15} x={80} y={0} duration={0.9} className="absolute top-[4%] left-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
           <motion.div style={{ y: yLego, rotate: rotateLego }}>
-            <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.png" alt="Pen Tool 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.webp" alt="Pen Tool 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
         <FadeIn delay={0.3} x={80} y={0} duration={0.9} className="absolute bottom-[8%] left-[4%] w-[65px] xs:w-[90px] sm:w-[130px] md:w-[170px] lg:w-[220px] opacity-20 sm:opacity-100 pointer-events-none z-0">
           <motion.div style={{ y: yGroup, rotate: rotateGroup }}>
-            <img src="https://i.ibb.co/CsXrWskK/web-design-v2.png" alt="Web Design 3D" referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <img src="https://i.ibb.co/CsXrWskK/web-design-v2.webp" alt="Web Design 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
           </motion.div>
         </FadeIn>
 
         <div className="flex flex-col items-center gap-10 sm:gap-14 md:gap-16 z-10 w-full max-w-4xl px-6 sm:px-12 md:px-16 lg:px-20">
-          <FadeIn delay={0} y={40}>
-            <h2 className="text-[clamp(3rem,12vw,160px)] font-black uppercase leading-none tracking-tight text-center bg-gradient-to-b from-white to-[#F7941D] bg-clip-text text-transparent">
-              {t('about.title')}
-            </h2>
-          </FadeIn>
+          <div ref={aboutTitleRef} className="w-full text-center relative z-10 flex flex-col items-center justify-center select-none overflow-visible">
+            <div className="relative inline-block max-w-full overflow-visible py-2 px-2">
+              <EditableText textKey="about.title" fallbackText="عني" className="w-full">
+                <motion.h2 
+                  style={{ clipPath: aboutTitleClip }}
+                  className="font-black uppercase text-[clamp(2.2rem,9.5vw,140px)] leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F7941D] via-[#A359FF] to-[#F7941D] select-none pb-2 text-center"
+                >
+                  {t('about.title')}
+                </motion.h2>
+              </EditableText>
+            </div>
+          </div>
 
-          <AnimatedText 
-            text={t('about.text')}
-            className="text-gray-200 font-medium leading-relaxed max-w-[560px] text-[clamp(1rem,2vw,1.35rem)] text-center"
-          />
+          <EditableText textKey="about.text" fallbackText="أنا مصمم شغوف..." multiline className="w-full flex justify-center">
+            <AnimatedText 
+              text={t('about.text')}
+              className="text-gray-200 font-medium leading-relaxed max-w-[560px] text-[clamp(1rem,2vw,1.35rem)] text-center"
+            />
+          </EditableText>
 
           <div className="mt-6 sm:mt-10">
             <a href="#contact" onClick={(e) => handleScrollTo(e, 'contact')}>
@@ -1464,20 +1796,16 @@ export default function App() {
 
       {/* 5. PROJECTS SECTION */}
       <section id="projects" className="bg-[#2A1E40] rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] -mt-10 sm:-mt-12 md:-mt-14 z-30 relative py-20 pb-40">
-        <div ref={projectsTitleRef} className="w-full text-center relative z-10 max-w-7xl mx-auto flex flex-col items-center justify-center select-none mb-16 px-6">
-          <div className="relative inline-block">
-            {/* Background Base Text (Dimmed / Unrevealed state) */}
-            <h2 className="text-center font-black uppercase text-[clamp(3rem,11vw,140px)] leading-none text-white/10 select-none">
-              {t('projects.title')}
-            </h2>
-            
-            {/* Foreground Fill Text (Revealed Brand Gradient state) */}
-            <motion.h2 
-              style={{ clipPath: projectsTitleClip }}
-              className="absolute top-0 left-0 w-full h-full text-center font-black uppercase text-[clamp(3rem,11vw,140px)] leading-none text-transparent bg-clip-text bg-gradient-to-r from-[#F7941D] via-[#A359FF] to-[#F7941D] select-none whitespace-nowrap"
-            >
-              {t('projects.title')}
-            </motion.h2>
+        <div ref={projectsTitleRef} className="w-full text-center relative z-10 max-w-7xl mx-auto flex flex-col items-center justify-center select-none mb-16 px-6 overflow-visible">
+          <div className="relative inline-block max-w-full overflow-visible py-2 px-2">
+            <EditableText textKey="projects.title" fallbackText="المشاريع" className="w-full">
+              <motion.h2 
+                style={{ clipPath: projectsTitleClip }}
+                className="font-black uppercase text-[clamp(2.2rem,9vw,130px)] leading-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F7941D] via-[#A359FF] to-[#F7941D] select-none pb-2 text-center"
+              >
+                {t('projects.title')}
+              </motion.h2>
+            </EditableText>
           </div>
         </div>
 
@@ -1510,7 +1838,7 @@ export default function App() {
                         <h3 className="text-white font-medium text-xl sm:text-2xl md:text-4xl uppercase">{item.title}</h3>
                       </div>
                     </div>
-                    <LiveProjectButton />
+                    <LiveProjectButton onClick={() => setActiveView('portfolio')} />
                   </div>
                   
                   <div className="flex flex-col md:flex-row gap-4 h-full min-h-0">
@@ -1586,7 +1914,48 @@ export default function App() {
                     }
                   }
                 }}
-                className="partner-card group bg-white rounded-3xl shadow-sm hover:shadow-[0_15px_30px_rgba(247,148,29,0.15)] border border-gray-100 hover:border-[#F7941D] p-6 flex items-center justify-center w-40 sm:w-52 h-24 sm:h-28 shrink-0 transition-colors duration-300 select-none cursor-pointer backdrop-blur-md"
+                className="partner-card group bg-white rounded-3xl shadow-sm hover:shadow-[0_15px_30px_rgba(247,148,29,0.15)] border border-gray-100 hover:border-[#F7941D] p-4 sm:p-6 flex items-center justify-center w-36 sm:w-52 aspect-[16/9] h-auto shrink-0 transition-all duration-300 select-none cursor-pointer backdrop-blur-md"
+                onMouseMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                  e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                  e.currentTarget.style.setProperty('--glow-opacity', '1');
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.setProperty('--glow-opacity', '0');
+                }}
+                onTouchStart={(e) => {
+                  if (e.touches && e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                  }
+                  e.currentTarget.style.setProperty('--glow-opacity', '1');
+                  e.currentTarget.classList.add('is-touched');
+                }}
+                onTouchMove={(e) => {
+                  if (e.touches && e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.setProperty('--glow-opacity', '0');
+                  e.currentTarget.classList.remove('is-touched');
+                }}
+                onTouchCancel={(e) => {
+                  e.currentTarget.style.setProperty('--glow-opacity', '0');
+                  e.currentTarget.classList.remove('is-touched');
+                }}
               >
                 {isVideoUrl(logo) ? (
                   <video 
@@ -1598,7 +1967,7 @@ export default function App() {
                     onPlay={(e) => {
                       if (!isMediaPlaying) e.currentTarget.pause();
                     }}
-                    className="partner-logo max-w-[85%] max-h-[85%] object-contain"
+                    className="partner-logo max-w-[85%] max-h-[85%] w-auto h-auto object-contain"
                   />
                 ) : (
                   <img 
@@ -1606,7 +1975,7 @@ export default function App() {
                     alt={`شريك النجاح ${idx + 1}`} 
                     referrerPolicy="no-referrer"
                     loading="lazy"
-                    className="partner-logo max-w-[85%] max-h-[85%] object-contain"
+                    className="partner-logo max-w-[85%] max-h-[85%] w-auto h-auto object-contain"
                   />
                 )}
               </motion.div>
@@ -1626,7 +1995,7 @@ export default function App() {
             return isVideoUrl(footerBgUrl) ? (
               <video
                 src={footerBgUrl}
-                autoPlay={isMediaPlaying}
+                autoPlay
                 loop
                 muted
                 playsInline
@@ -1634,22 +2003,18 @@ export default function App() {
                 onPlay={(e) => {
                   if (!isMediaPlaying) e.currentTarget.pause();
                 }}
-                className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
-                  isMediaPlaying ? 'opacity-40' : 'opacity-0'
-                }`}
+                className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-40 transition-opacity duration-700 pointer-events-none"
                 style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
               />
             ) : (
-              <img
+              <FrozenMediaImage
                 src={footerBgUrl}
-                alt=""
+                isMediaPlaying={isMediaPlaying}
                 loading="eager"
                 decoding="async"
-                aria-hidden="true"
+                ariaHidden={true}
                 referrerPolicy="no-referrer"
-                className={`absolute inset-0 w-full h-full object-cover mix-blend-screen transition-opacity duration-700 pointer-events-none ${
-                  isMediaPlaying ? 'opacity-45' : 'opacity-0'
-                }`}
+                className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-45 transition-opacity duration-700 pointer-events-none"
                 style={{ filter: "brightness(0.9) contrast(1.1) saturate(1.15)" }}
               />
             );
@@ -1971,18 +2336,46 @@ export default function App() {
           </div>
 
           <FadeIn y={15} duration={0.6} delay={0.6}>
-            <p 
-              onDoubleClick={() => setIsAdminOpen(true)}
-              className="text-gray-400 text-[11px] md:text-xs uppercase tracking-widest font-light text-center border-t border-white/5 pt-6 select-none cursor-default hover:text-gray-300 transition-colors duration-200"
-              title={language === 'ar' ? 'انقر مرتين للدخول السري' : 'Double click for secret access'}
-            >
-              {t('common.rights')}
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between border-t border-white/10 pt-6 gap-3">
+              <p 
+                onDoubleClick={() => setIsAdminOpen(true)}
+                className="text-gray-400 text-[11px] md:text-xs uppercase tracking-widest font-light text-center sm:text-start select-none cursor-default hover:text-gray-300 transition-colors duration-200"
+                title={language === 'ar' ? 'انقر مرتين للدخول السري' : 'Double click for secret access'}
+              >
+                {t('common.rights')}
+              </p>
+            </div>
           </FadeIn>
 
         </div>
       </footer>
       <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+
+      {/* Floating Back to Top Button */}
+      <AnimatePresence>
+        {scrollOffset > 400 && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 20 }}
+            whileHover={{ scale: 1.1, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              const lenis = (window as any).lenis;
+              if (lenis) {
+                lenis.scrollTo(0, { duration: 1.2 });
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            aria-label={language === 'ar' ? 'العودة إلى أعلى الصفحة' : 'Back to top'}
+            title={language === 'ar' ? 'العودة إلى أعلى الصفحة' : 'Back to Top'}
+            className={`fixed bottom-6 ${dir === 'rtl' ? 'left-6 sm:left-8' : 'right-6 sm:right-8'} z-50 p-3 sm:p-3.5 rounded-2xl bg-[#180C2E]/90 hover:bg-[#28154A] border border-[#F7941D]/50 hover:border-[#F7941D] text-[#F7941D] hover:text-white shadow-[0_4px_20px_rgba(247,148,29,0.35)] hover:shadow-[0_8px_30px_rgba(247,148,29,0.6)] backdrop-blur-xl transition-all duration-300 cursor-pointer group flex items-center justify-center`}
+          >
+            <ChevronUp size={20} className="sm:w-6 sm:h-6 group-hover:-translate-y-0.5 transition-transform duration-300" />
+          </motion.button>
+        )}
+      </AnimatePresence>
               </>
             </motion.div>
           )}

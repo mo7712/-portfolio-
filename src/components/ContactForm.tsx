@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { z } from 'zod';
 import { useLanguage } from '../context/LanguageContext';
+import { useAnalytics } from '../hooks/useAnalytics';
 import { 
   Send, 
   CheckCircle2, 
@@ -17,7 +19,9 @@ import {
   User, 
   FileText,
   Layers,
-  X
+  X,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 
 // --- LOCAL MINIFIED BRAND LOGO TO AVOID CIRCULAR IMPORT ---
@@ -90,6 +94,7 @@ function DynamicSocialLink({ href, label, handle, colorClass, icon }: DynamicSoc
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={`${label} (${handle})`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="relative flex items-center h-12 rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden cursor-pointer select-none transition-colors duration-300 hover:border-transparent"
@@ -138,6 +143,7 @@ function DynamicSocialLink({ href, label, handle, colorClass, icon }: DynamicSoc
 
 export default function ContactForm() {
   const { language, t, dir } = useLanguage();
+  const { trackCTA, trackEvent } = useAnalytics();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -192,34 +198,37 @@ export default function ContactForm() {
     setTimeout(() => setCopiedPhone(false), 2000);
   };
 
+  const getContactSchema = () => z.object({
+    name: z.string()
+      .trim()
+      .min(1, { message: t('contact.reqName') })
+      .min(3, { message: t('contact.minName') }),
+    email: z.string()
+      .trim()
+      .min(1, { message: t('contact.reqEmail') })
+      .email({ message: t('contact.invalidEmail') }),
+    phone: z.string()
+      .trim()
+      .min(1, { message: t('contact.reqPhone') })
+      .regex(/^[\d\s+\-()]{7,20}$/, {
+        message: language === 'ar' ? 'رقم الهاتف غير صالح' : 'Invalid phone number format'
+      }),
+    projectSubject: z.string().optional(),
+    message: z.string()
+      .trim()
+      .min(1, { message: t('contact.reqMsg') })
+      .min(10, { message: language === 'ar' ? 'يجب أن تحتوي التفاصيل على 10 أحرف على الأقل' : 'Details must be at least 10 characters' })
+  });
+
   const validateField = (fieldName: string, value: string) => {
+    const schema = getContactSchema();
+    const shape = schema.shape as Record<string, z.ZodTypeAny>;
     let errorMsg = '';
-    
-    if (fieldName === 'name') {
-      if (!value.trim()) {
-        errorMsg = t('contact.reqName');
-      } else if (value.trim().length < 3) {
-        errorMsg = t('contact.minName');
-      }
-    } else if (fieldName === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!value.trim()) {
-        errorMsg = t('contact.reqEmail');
-      } else if (!emailRegex.test(value.trim())) {
-        errorMsg = t('contact.invalidEmail');
-      }
-    } else if (fieldName === 'phone') {
-      const phoneRegex = /^[\d\s+\-()]{7,20}$/;
-      if (!value.trim()) {
-        errorMsg = t('contact.reqPhone');
-      } else if (!phoneRegex.test(value.trim())) {
-        errorMsg = language === 'ar' ? 'رقم الهاتف غير صالح' : 'Invalid phone number format';
-      }
-    } else if (fieldName === 'message') {
-      if (!value.trim()) {
-        errorMsg = t('contact.reqMsg');
-      } else if (value.trim().length < 10) {
-        errorMsg = language === 'ar' ? 'يجب أن تحتوي التفاصيل على 10 أحرف على الأقل' : 'Details must be at least 10 characters';
+
+    if (shape[fieldName]) {
+      const result = shape[fieldName].safeParse(value);
+      if (!result.success) {
+        errorMsg = result.error.issues[0]?.message || '';
       }
     }
 
@@ -233,50 +242,25 @@ export default function ContactForm() {
   };
 
   const validateForm = () => {
-    let isValid = true;
-    const newErrors = { name: '', email: '', phone: '', projectSubject: '', message: '' };
+    const schema = getContactSchema();
+    const result = schema.safeParse(formData);
 
-    // Name Validation
-    if (!formData.name.trim()) {
-      newErrors.name = t('contact.reqName');
-      isValid = false;
-    } else if (formData.name.trim().length < 3) {
-      newErrors.name = t('contact.minName');
-      isValid = false;
+    if (!result.success) {
+      const newErrors = { name: '', email: '', phone: '', projectSubject: '', message: '' };
+      result.error.issues.forEach((err) => {
+        const fieldName = err.path[0] as keyof typeof newErrors;
+        if (fieldName && !newErrors[fieldName]) {
+          newErrors[fieldName] = err.message;
+        }
+      });
+      setErrors(newErrors);
+      setTouched({ name: true, email: true, phone: true, message: true });
+      return false;
     }
 
-    // Email Validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = t('contact.reqEmail');
-      isValid = false;
-    } else if (!emailRegex.test(formData.email.trim())) {
-      newErrors.email = t('contact.invalidEmail');
-      isValid = false;
-    }
-
-    // Phone Validation
-    const phoneRegex = /^[\d\s+\-()]{7,20}$/;
-    if (!formData.phone.trim()) {
-      newErrors.phone = t('contact.reqPhone');
-      isValid = false;
-    } else if (!phoneRegex.test(formData.phone.trim())) {
-      newErrors.phone = language === 'ar' ? 'رقم الهاتف غير صالح' : 'Invalid phone number format';
-      isValid = false;
-    }
-
-    // Message Validation
-    if (!formData.message.trim()) {
-      newErrors.message = t('contact.reqMsg');
-      isValid = false;
-    } else if (formData.message.trim().length < 10) {
-      newErrors.message = language === 'ar' ? 'يجب أن تحتوي التفاصيل على 10 أحرف على الأقل' : 'Details must be at least 10 characters';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
+    setErrors({ name: '', email: '', phone: '', projectSubject: '', message: '' });
     setTouched({ name: true, email: true, phone: true, message: true });
-    return isValid;
+    return true;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -292,6 +276,10 @@ export default function ContactForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+
+    trackCTA('Contact Form Submit', 'Contact Section', {
+      subject: formData.projectSubject || 'General Inquiry',
+    });
 
     setIsSubmitting(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -366,6 +354,7 @@ export default function ContactForm() {
                     onClick={handleCopyPhone}
                     className="w-8 h-8 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer flex items-center justify-center border border-white/5 active:scale-95"
                     title={language === 'ar' ? 'نسخ الرقم' : 'Copy number'}
+                    aria-label={language === 'ar' ? 'نسخ رقم الهاتف' : 'Copy phone number'}
                   >
                     {copiedPhone ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                   </button>
@@ -392,6 +381,7 @@ export default function ContactForm() {
                     onClick={handleCopyEmail}
                     className="w-8 h-8 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer flex items-center justify-center border border-white/5 active:scale-95"
                     title={t('contact.copyEmail')}
+                    aria-label={t('contact.copyEmail')}
                   >
                     {copiedEmail ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                   </button>
