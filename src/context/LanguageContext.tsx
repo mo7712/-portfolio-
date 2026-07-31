@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { PortfolioItem, CategoryItem } from '../types';
 import { portfolioItems } from '../portfolioData';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, doc, setDoc, getDocs } from 'firebase/firestore';
 
 type Language = 'ar' | 'en';
 type Dir = 'rtl' | 'ltr';
@@ -224,6 +226,14 @@ const translations: Record<Language, Record<string, string>> = {
     'portfolioGallery.autoplayTemp': '(تم إيقافه مؤقتاً لتفاعلك مع المشروع)',
     'portfolioGallery.stopAutoplay': 'إيقاف التصفح التلقائي',
     'portfolioGallery.startAutoplay': 'تشغيل التصفح التلقائي',
+    'portfolioGallery.filterByTech': 'تصفية حسب التقنية / الأداة',
+    'portfolioGallery.allTech': 'جميع التقنيات',
+    'portfolioGallery.technologiesUsed': 'التقنيات المستخدمة',
+    'portfolioGallery.selectedTech': 'التقنية المحددة',
+    'portfolioGallery.clearTechFilter': 'إلغاء تصفية التقنية',
+    'portfolioGallery.share': 'مشاركة',
+    'portfolioGallery.shareProject': 'مشاركة رابط المشروع',
+    'portfolioGallery.linkCopied': 'تم نسخ الرابط بنجاح!',
 
     // Common
     'common.backHome': 'الرئيسية',
@@ -350,6 +360,14 @@ const translations: Record<Language, Record<string, string>> = {
     'portfolioGallery.autoplayTemp': '(Temporarily paused for your interaction)',
     'portfolioGallery.stopAutoplay': 'Stop Autoplay',
     'portfolioGallery.startAutoplay': 'Start Autoplay',
+    'portfolioGallery.filterByTech': 'Filter by Technology / Tool',
+    'portfolioGallery.allTech': 'All Technologies',
+    'portfolioGallery.technologiesUsed': 'Technologies Used',
+    'portfolioGallery.selectedTech': 'Selected Technology',
+    'portfolioGallery.clearTechFilter': 'Clear Technology Filter',
+    'portfolioGallery.share': 'Share',
+    'portfolioGallery.shareProject': 'Share Project Link',
+    'portfolioGallery.linkCopied': 'Link copied successfully!',
 
     // Common
     'common.backHome': 'Home',
@@ -457,8 +475,33 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLanguageState(lang);
   };
 
-  // Helper to persist single fields to server
+  // Helper to persist single fields to server & Firestore
+  const saveToFirestore = async (payload: any) => {
+    try {
+      if (payload.portfolioItems && Array.isArray(payload.portfolioItems)) {
+        for (const item of payload.portfolioItems) {
+          if (!item.id) continue;
+          const docRef = doc(db, 'portfolioItems', String(item.id));
+          await setDoc(docRef, { ...item, updatedAt: new Date().toISOString() }, { merge: true });
+        }
+      }
+      if (payload.customTranslations) {
+        for (const [lang, map] of Object.entries(payload.customTranslations)) {
+          if (!map || typeof map !== 'object') continue;
+          for (const [k, v] of Object.entries(map as Record<string, string>)) {
+            const cleanKey = String(k).replace(/[\/\.]/g, '_');
+            const docRef = doc(db, 'translations', cleanKey);
+            await setDoc(docRef, { key: k, [lang === 'ar' ? 'valueAr' : 'valueEn']: v }, { merge: true });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Firestore sync notification:", err);
+    }
+  };
+
   const saveToServer = (payload: any) => {
+    saveToFirestore(payload);
     const token = sessionStorage.getItem('manea_admin_auth_token') || 'fallback-admin-token-2026';
 
     fetch('/api/admin/save-data', {

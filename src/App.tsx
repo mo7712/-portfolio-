@@ -8,7 +8,7 @@ import ContactForm from './components/ContactForm';
 import ServicesPinnedSection from './components/ServicesPinned';
 import { LazyImage, LazyVideo, LazyMedia } from './components/LazyMedia';
 import { useLanguage } from './context/LanguageContext';
-import { VisualEditorBar, EditableText, EditableImage } from './components/VisualEditor';
+import { VisualEditorBar, VisualPromptBottomBar, EditableText, EditableImage, EditableVideo } from './components/VisualEditor';
 import { useAnalytics } from './hooks/useAnalytics';
 import useSectionObserver from './hooks/useSectionObserver';
 import { Helmet } from 'react-helmet-async';
@@ -1084,7 +1084,10 @@ export default function App() {
   return (
     <div dir={dir} className="min-h-screen bg-[#3A2A56] text-white font-sans overflow-x-clip selection:bg-[#F7941D] selection:text-white">
       {isVisualEditorActive && (
-        <VisualEditorBar onOpenAdmin={() => setIsAdminOpen(true)} />
+        <>
+          <VisualEditorBar onOpenAdmin={() => setIsAdminOpen(true)} />
+          <VisualPromptBottomBar />
+        </>
       )}
       <Helmet>
         <html lang={language} dir={dir} />

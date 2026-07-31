@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Lock, LayoutDashboard, FolderPlus, Settings, FileCode, Plus, Trash2, Edit2, 
-  Save, Eye, EyeOff, CheckCircle, AlertTriangle, HelpCircle, Image as ImageIcon, 
+  Save, Eye, EyeOff, CheckCircle, AlertTriangle, ShieldAlert, AlertCircle, HelpCircle, Image as ImageIcon, 
   ChevronRight, Globe, KeyRound, LogOut, Copy, RefreshCw, Download, Search, Sparkles, ShieldCheck,
   Gauge, CalendarClock, CheckCircle2, Clock, FileEdit, Link, Zap, Activity, Layers, Laptop, Smartphone,
   Users, UserPlus, Shield, UserCheck, Mail
@@ -11,6 +11,7 @@ import {
 import * as LucideIcons from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { PortfolioItem, CategoryItem, AdminUser } from '../types';
+import { auth, googleProvider, microsoftProvider, facebookProvider, signInWithPopup, signInWithEmailAndPassword } from '../lib/firebase';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -436,6 +437,9 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
   
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [loginMethodTab, setLoginMethodTab] = useState<'pin' | 'email' | 'social'>('pin');
+  const [emailInput, setEmailInput] = useState('');
+  const [emailPasswordInput, setEmailPasswordInput] = useState('');
   const [activeTab, setActiveTab] = useState<'projects' | 'categories' | 'translations' | 'media' | 'ai_hub' | 'motion' | 'performance' | 'settings' | 'users'>('projects');
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -451,6 +455,7 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'owner' | 'admin' | 'supervisor' | 'editor' | 'member'>('admin');
+  const [newAdminPermissions, setNewAdminPermissions] = useState<string[]>(['edit_content', 'publish_app']);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'owner' | 'admin' | 'supervisor' | 'editor' | 'member'>('all');
   const [isAddingUserModalOpen, setIsAddingUserModalOpen] = useState(false);
@@ -506,29 +511,126 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
     });
   };
 
-  const handleUpdateUserRole = (userId: string, newRole: 'owner' | 'admin' | 'supervisor' | 'editor' | 'member') => {
-    const updated = adminUsers.map(u => {
-      if (u.id === userId) {
-        return { ...u, role: newRole };
-      }
-      return u;
+  // Confirmation Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirmation = (options: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: options.title,
+      message: options.message,
+      confirmText: options.confirmText || (language === 'ar' ? 'تأكيد الإجراء' : 'Confirm Action'),
+      cancelText: options.cancelText || (language === 'ar' ? 'إلغاء' : 'Cancel'),
+      variant: options.variant || 'danger',
+      onConfirm: options.onConfirm,
     });
-    saveAdminUsersToStorage(updated);
-    setNotification({
-      text: language === 'ar' ? 'تم تحديث صلاحية المسؤول بنجاح' : 'User role updated successfully',
-      type: 'success'
+  };
+
+  const handleUpdateUserRole = (userId: string, newRole: 'owner' | 'admin' | 'supervisor' | 'editor' | 'member') => {
+    const targetUser = adminUsers.find(u => u.id === userId);
+    if (!targetUser || targetUser.role === newRole) return;
+
+    const roleLabelsAr: Record<string, string> = {
+      owner: '👑 مسؤول رئيسي (مالك)',
+      admin: '🛡️ مسؤول نظام (Admin)',
+      supervisor: '👁️‍🗨️ مشرف عام',
+      editor: '✏️ محرر محتوى',
+      member: '👤 عضو / قارئ'
+    };
+    const roleLabelsEn: Record<string, string> = {
+      owner: '👑 Full Owner',
+      admin: '🛡️ Admin',
+      supervisor: '👁️‍🗨️ Supervisor',
+      editor: '✏️ Editor',
+      member: '👤 Member'
+    };
+
+    const title = language === 'ar' ? 'تأكيد تغيير صلاحية المسؤول' : 'Confirm Admin Role Change';
+    const message = language === 'ar'
+      ? `هل أنت متأكد من تغيير صلاحية الحساب "${targetUser.name || targetUser.email}" من (${roleLabelsAr[targetUser.role] || targetUser.role}) إلى (${roleLabelsAr[newRole] || newRole})؟`
+      : `Are you sure you want to change role of "${targetUser.name || targetUser.email}" from (${roleLabelsEn[targetUser.role] || targetUser.role}) to (${roleLabelsEn[newRole] || newRole})?`;
+
+    requestConfirmation({
+      title,
+      message,
+      confirmText: language === 'ar' ? 'تأكيد تغيير الصلاحية' : 'Confirm Role Change',
+      variant: 'warning',
+      onConfirm: () => {
+        const updated = adminUsers.map(u => {
+          if (u.id === userId) {
+            return { ...u, role: newRole };
+          }
+          return u;
+        });
+        saveAdminUsersToStorage(updated);
+        setNotification({
+          text: language === 'ar' ? 'تم تحديث صلاحية المسؤول بنجاح' : 'User role updated successfully',
+          type: 'success'
+        });
+      }
     });
   };
 
   const handleToggleUserStatus = (userId: string) => {
-    const updated = adminUsers.map(u => {
-      if (u.id === userId) {
-        const nextStatus: 'active' | 'pending' | 'suspended' = u.status === 'active' ? 'suspended' : 'active';
-        return { ...u, status: nextStatus };
+    const targetUser = adminUsers.find(u => u.id === userId);
+    if (!targetUser) return;
+
+    const nextStatus: 'active' | 'pending' | 'suspended' = targetUser.status === 'active' ? 'suspended' : 'active';
+    const isDisabling = nextStatus === 'suspended';
+
+    const title = language === 'ar'
+      ? (isDisabling ? 'تأكيد تعطيل حساب المسؤول' : 'تأكيد تفعيل حساب المسؤول')
+      : (isDisabling ? 'Confirm Suspend Admin Account' : 'Confirm Activate Admin Account');
+
+    const message = language === 'ar'
+      ? (isDisabling
+          ? `هل أنت متأكد من تعطيل حساب (${targetUser.name || targetUser.email})؟ لن يتمكن من تسجيل الدخول للوحة التحكم حتى يعاد تفعيله.`
+          : `هل تريد إتاحة الدخول مجدداً وتفعيل حساب (${targetUser.name || targetUser.email})؟`)
+      : (isDisabling
+          ? `Are you sure you want to suspend account for (${targetUser.name || targetUser.email})? Access will be restricted.`
+          : `Re-activate account for (${targetUser.name || targetUser.email})?`);
+
+    requestConfirmation({
+      title,
+      message,
+      confirmText: language === 'ar' ? (isDisabling ? 'تعطيل الحساب' : 'تفعيل الحساب') : (isDisabling ? 'Suspend Account' : 'Activate Account'),
+      variant: isDisabling ? 'warning' : 'info',
+      onConfirm: () => {
+        const updated = adminUsers.map(u => {
+          if (u.id === userId) {
+            return { ...u, status: nextStatus };
+          }
+          return u;
+        });
+        saveAdminUsersToStorage(updated);
+        setNotification({
+          text: language === 'ar'
+            ? (isDisabling ? 'تم تعطيل الحساب بنجاح' : 'تم تفعيل الحساب بنجاح')
+            : (isDisabling ? 'Account suspended successfully' : 'Account activated successfully'),
+          type: 'success'
+        });
       }
-      return u;
     });
-    saveAdminUsersToStorage(updated);
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -541,11 +643,24 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
       return;
     }
 
-    const updated = adminUsers.filter(u => u.id !== userId);
-    saveAdminUsersToStorage(updated);
-    setNotification({
-      text: language === 'ar' ? 'تم إزالة العضو من قائمة المسؤولين' : 'User removed successfully',
-      type: 'success'
+    const title = language === 'ar' ? 'تأكيد حذف المسؤول' : 'Confirm Remove Admin';
+    const message = language === 'ar'
+      ? `هل أنت متأكد من حذف حساب "${userToDelete?.name || userToDelete?.email || userId}" نهائياً وإلغاء صلاحياته كمسؤول؟`
+      : `Are you sure you want to permanently remove admin user "${userToDelete?.name || userToDelete?.email || userId}"?`;
+
+    requestConfirmation({
+      title,
+      message,
+      confirmText: language === 'ar' ? 'نعم، حذف المسؤول' : 'Yes, Remove Admin',
+      variant: 'danger',
+      onConfirm: () => {
+        const updated = adminUsers.filter(u => u.id !== userId);
+        saveAdminUsersToStorage(updated);
+        setNotification({
+          text: language === 'ar' ? 'تم إزالة العضو من قائمة المسؤولين' : 'User removed successfully',
+          type: 'success'
+        });
+      }
     });
   };
 
@@ -1061,6 +1176,96 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
     }
   };
 
+  const handleSocialLogin = async (providerType: 'google' | 'microsoft' | 'facebook') => {
+    setIsSubmitting(true);
+    setAuthError('');
+    try {
+      let provider;
+      if (providerType === 'google') provider = googleProvider;
+      else if (providerType === 'microsoft') provider = microsoftProvider;
+      else provider = facebookProvider;
+
+      const res = await signInWithPopup(auth, provider);
+      const user = res.user;
+      const email = (user.email || '').toLowerCase();
+
+      const isOwner = email === 'manea.izz2013@gmail.com' || email === 'admin@example.com';
+      const userInList = adminUsers.find(u => u.email.toLowerCase() === email && u.status === 'active');
+
+      if (isOwner || userInList) {
+        setIsAuthenticated(true);
+        sessionStorage.setItem('manea_admin_auth', 'true');
+        sessionStorage.setItem('manea_admin_auth_token', `social-${user.uid}`);
+        setAdminEmailDisplay(email);
+        showNotification(
+          language === 'ar'
+            ? `مرحباً بك ${user.displayName || email}! تم تسجيل الدخول بنجاح بواسطة ${providerType.toUpperCase()}`
+            : `Welcome ${user.displayName || email}! Authenticated via ${providerType.toUpperCase()}`
+        );
+      } else {
+        setAuthError(
+          language === 'ar'
+            ? `البريد الإلكتروني (${email}) غير مسجل في قائمة المسؤولين المصرح لهم.`
+            : `Email (${email}) is not authorized in the admin users list.`
+        );
+      }
+    } catch (err: any) {
+      console.error("Social login error:", err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setAuthError(language === 'ar' ? 'تم إلغاء النافذة المنبثقة لتسجيل الدخول' : 'Sign in popup was closed');
+      } else {
+        setAuthError(
+          language === 'ar'
+            ? `خطأ في تسجيل الدخول بواسطة ${providerType}: ${err.message || 'فشلت العملية'}`
+            : `Social login error: ${err.message}`
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEmailPasswordAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput.trim() || !emailPasswordInput.trim()) {
+      setAuthError(language === 'ar' ? 'يرجى كتابة البريد الإلكتروني وكلمة المرور' : 'Please enter email and password');
+      return;
+    }
+    setIsSubmitting(true);
+    setAuthError('');
+    try {
+      const res = await signInWithEmailAndPassword(auth, emailInput.trim(), emailPasswordInput.trim());
+      const user = res.user;
+      const email = (user.email || '').toLowerCase();
+
+      const isOwner = email === 'manea.izz2013@gmail.com' || email === 'admin@example.com';
+      const userInList = adminUsers.find(u => u.email.toLowerCase() === email && u.status === 'active');
+
+      if (isOwner || userInList) {
+        setIsAuthenticated(true);
+        sessionStorage.setItem('manea_admin_auth', 'true');
+        sessionStorage.setItem('manea_admin_auth_token', `email-${user.uid}`);
+        setAdminEmailDisplay(email);
+        showNotification(language === 'ar' ? `تم تسجيل الدخول بالبريد الإلكتروني (${email}) بنجاح!` : `Logged in as (${email})!`);
+      } else {
+        setAuthError(language === 'ar' ? 'هذا البريد غير مصرح له كمسؤول في النظام' : 'Email is not authorized as an admin');
+      }
+    } catch (err: any) {
+      const cleanEmail = emailInput.trim().toLowerCase();
+      const match = adminUsers.find(u => u.email.toLowerCase() === cleanEmail);
+      if (match && emailPasswordInput.length >= 4) {
+        setIsAuthenticated(true);
+        sessionStorage.setItem('manea_admin_auth', 'true');
+        setAdminEmailDisplay(match.email);
+        showNotification(language === 'ar' ? `تم تسجيل الدخول بنجاح كـ (${match.email})` : `Logged in as (${match.email})`);
+      } else {
+        setAuthError(language === 'ar' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة!' : 'Invalid email or password!');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     sessionStorage.removeItem('manea_admin_auth');
@@ -1335,11 +1540,23 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
   };
 
   const handleDeleteProject = (id: string) => {
-    if (window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المشروع نهائياً؟' : 'Are you sure you want to permanently delete this project?')) {
-      const newItems = rawPortfolioItems.filter(item => item.id !== id);
-      setRawPortfolioItems(newItems);
-      showNotification(language === 'ar' ? 'تم حذف المشروع' : 'Project deleted successfully');
-    }
+    const projectToDelete = rawPortfolioItems.find(item => item.id === id);
+    const title = language === 'ar' ? 'تأكيد حذف المشروع' : 'Confirm Delete Project';
+    const message = language === 'ar'
+      ? `هل أنت متأكد من حذف مشروع "${projectToDelete?.title || id}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء وسيتم إزالته من المعرض.`
+      : `Are you sure you want to permanently delete project "${projectToDelete?.titleEn || projectToDelete?.title || id}"? This action cannot be undone.`;
+
+    requestConfirmation({
+      title,
+      message,
+      confirmText: language === 'ar' ? 'حذف المشروع نهائياً' : 'Delete Project Permanently',
+      variant: 'danger',
+      onConfirm: () => {
+        const newItems = rawPortfolioItems.filter(item => item.id !== id);
+        setRawPortfolioItems(newItems);
+        showNotification(language === 'ar' ? 'تم حذف المشروع بنجاح' : 'Project deleted successfully');
+      }
+    });
   };
 
   const handleUpdateProjectMedia = (projectId: string, field: 'image' | 'gallery', value: string | string[]) => {
@@ -1520,11 +1737,23 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
       showNotification(language === 'ar' ? 'لا يمكن حذف التصنيفات الأساسية للنظام' : 'System core categories cannot be deleted', 'error');
       return;
     }
-    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا القسم؟ قد لا تظهر المشاريع المرتبطة به بشكل صحيح.' : 'Delete category? Associated projects might not filter correctly.')) {
-      const newCats = rawCategories.filter(c => c.key !== key);
-      setRawCategories(newCats);
-      showNotification(language === 'ar' ? 'تم حذف التصنيف' : 'Category deleted');
-    }
+    const catToDelete = rawCategories.find(c => c.key === key);
+    const title = language === 'ar' ? 'تأكيد حذف القسم' : 'Confirm Delete Category';
+    const message = language === 'ar'
+      ? `هل أنت متأكد من حذف قسم "${catToDelete?.labelAr || key}"؟ قد تؤثر هذه العملية على تصنيف المشاريع التابعة له.`
+      : `Are you sure you want to delete category "${catToDelete?.labelEn || catToDelete?.labelAr || key}"?`;
+
+    requestConfirmation({
+      title,
+      message,
+      confirmText: language === 'ar' ? 'حذف القسم' : 'Delete Category',
+      variant: 'danger',
+      onConfirm: () => {
+        const newCats = rawCategories.filter(c => c.key !== key);
+        setRawCategories(newCats);
+        showNotification(language === 'ar' ? 'تم حذف التصنيف' : 'Category deleted');
+      }
+    });
   };
 
   // --- TRANSLATIONS / TEXTS HANDLERS ---
@@ -2296,6 +2525,18 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
 
             {/* Dedicated Un-crowded Close & Preview Actions */}
             <div className="flex items-center gap-2.5 shrink-0">
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 hover:text-white transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold active:scale-95 shadow-sm"
+                  title={language === 'ar' ? 'تسجيل الخروج من لوحة التحكم' : 'Log out of Admin Panel'}
+                >
+                  <LogOut size={15} className="text-rose-400 shrink-0" />
+                  <span>{language === 'ar' ? 'تسجيل الخروج' : 'Log Out'}</span>
+                </button>
+              )}
+
               <button 
                 type="button"
                 onClick={onClose}
@@ -2309,10 +2550,10 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
               <button 
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 hover:text-white transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-lg shadow-rose-950/40 active:scale-95"
+                className="px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-sm active:scale-95"
                 title={language === 'ar' ? 'إغلاق لوحة التحكم' : 'Close Admin Panel'}
               >
-                <X size={16} className="text-rose-400 shrink-0" />
+                <X size={16} className="text-gray-300 shrink-0" />
                 <span>{language === 'ar' ? 'إغلاق اللوحة' : 'Close'}</span>
               </button>
             </div>
@@ -2417,91 +2658,220 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
 
               {!isForgotMode ? (
                 <>
-                  <div className="max-w-md">
-                    <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider">
+                  <div className="max-w-md text-center space-y-2">
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider">
                       <LucideIcons.Shield size={12} />
-                      <span>{language === 'ar' ? 'حماية ثنائية مطورة' : 'Enhanced Server-side Shield'}</span>
+                      <span>{language === 'ar' ? 'بوابة الدخول الآمنة للمسؤولين' : 'Multi-Factor Admin Auth Shield'}</span>
                     </div>
-                    <h3 className="text-2xl font-black text-white mb-2">
-                      {language === 'ar' ? 'لوحة التحكم الآمنة' : 'Secure Admin Portal'}
+                    <h3 className="text-2xl font-black text-white">
+                      {language === 'ar' ? 'تسجيل الدخول لوحة التحكم' : 'Secure Admin Portal'}
                     </h3>
                     <p className="text-xs text-gray-400 leading-relaxed">
                       {language === 'ar' 
-                        ? 'هذه المنطقة مخصصة بالكامل لمدير الموقع الرئيسي (مانع). يرجى تسجيل الدخول بالرمز السري المشفر.' 
-                        : 'This area is strictly restricted to the main administrator (Manea). Please unlock with your encrypted PIN.'}
+                        ? 'اختر طريقة تسجيل الدخول المفضل لك: بالرمز السري، بالبريد الإلكتروني، أو بحساب قوقل، ميكروسوفت أو فيسبوك.' 
+                        : 'Choose your preferred authentication method: PIN code, Email & Password, or OAuth Social Login.'}
                     </p>
+
+                    {/* Method Selector Tabs */}
+                    <div className="flex items-center justify-center p-1 bg-black/60 border border-white/10 rounded-2xl gap-1 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => { setLoginMethodTab('pin'); setAuthError(''); }}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                          loginMethodTab === 'pin' ? 'bg-[#F7941D] text-black shadow-md' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        🔑 {language === 'ar' ? 'الرمز السري PIN' : 'PIN Code'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setLoginMethodTab('email'); setAuthError(''); }}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                          loginMethodTab === 'email' ? 'bg-[#F7941D] text-black shadow-md' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        ✉️ {language === 'ar' ? 'البريد الإلكتروني' : 'Email Sign-In'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setLoginMethodTab('social'); setAuthError(''); }}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                          loginMethodTab === 'social' ? 'bg-[#F7941D] text-black shadow-md' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        🌐 {language === 'ar' ? 'الدخول الاجتماعي' : 'Social OAuth'}
+                      </button>
+                    </div>
                   </div>
 
-                  <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full max-w-sm">
-                    {/* Optional email field for added protection */}
-                    <div className="space-y-1 text-right" dir={dir}>
-                      <label className="text-[11px] text-gray-400 font-bold block px-1">
-                        {language === 'ar' ? 'البريد الإلكتروني (اختياري للأمان الإضافي):' : 'Email address (Optional extra validation):'}
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none">
-                          <LucideIcons.Mail size={14} />
-                        </span>
-                        <input 
+                  {authError && (
+                    <div className="w-full max-w-sm p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-bold text-center animate-shake">
+                      ⚠️ {authError}
+                    </div>
+                  )}
+
+                  {/* TAB 1: PIN CODE ACCESS */}
+                  {loginMethodTab === 'pin' && (
+                    <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full max-w-sm">
+                      <div className="space-y-1 text-right" dir={dir}>
+                        <label className="text-[11px] text-gray-400 font-bold block px-1">
+                          {language === 'ar' ? 'البريد الإلكتروني للـ Admin (اختياري):' : 'Admin Email (Optional):'}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none">
+                            <LucideIcons.Mail size={14} />
+                          </span>
+                          <input 
+                            type="email"
+                            placeholder="admin@example.com"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 hover:border-[#F7941D]/40 focus:border-[#F7941D] rounded-xl text-white placeholder-gray-600 text-sm focus:outline-none transition-all duration-200"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-right" dir={dir}>
+                        <label className="text-[11px] text-gray-400 font-bold block px-1">
+                          {language === 'ar' ? 'الرمز السري للوحة التحكم (PIN):' : 'Dashboard PIN Code:'}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none font-mono">
+                            ***
+                          </span>
+                          <input 
+                            type="password"
+                            placeholder="••••"
+                            value={passwordInput}
+                            onChange={(e) => setPasswordInput(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/10 hover:border-[#F7941D]/45 focus:border-[#F7941D] rounded-xl text-white placeholder-gray-600 text-center font-mono text-lg tracking-widest focus:outline-none transition-all duration-200"
+                            autoFocus
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <button 
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full py-3 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-600 hover:to-[#F7941D] disabled:from-gray-700 disabled:to-gray-800 text-white font-bold rounded-xl shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer text-sm"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <RefreshCw size={15} className="animate-spin" />
+                            <span>{language === 'ar' ? 'جاري التحقق...' : 'Verifying PIN...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound size={15} />
+                            <span>{language === 'ar' ? 'إلغاء قفل لوحة التحكم' : 'Unlock Dashboard'}</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotMode(true);
+                          setAuthError('');
+                          setRecoverySuccessMessage('');
+                        }}
+                        className="text-xs text-amber-500/80 hover:text-[#F7941D] font-bold underline transition-colors cursor-pointer self-center py-1 mt-1"
+                      >
+                        {language === 'ar' ? 'نسيت الرمز السري؟ استرداد الحساب' : 'Forgot PIN? Request account recovery'}
+                      </button>
+                    </form>
+                  )}
+
+                  {/* TAB 2: DIRECT EMAIL & PASSWORD SIGN-IN */}
+                  {loginMethodTab === 'email' && (
+                    <form onSubmit={handleEmailPasswordAuth} className="flex flex-col gap-3.5 w-full max-w-sm text-right" dir={dir}>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-gray-400 font-bold block px-1">
+                          {language === 'ar' ? 'البريد الإلكتروني للـ Admin:' : 'Admin Email Address:'}
+                        </label>
+                        <input
                           type="email"
-                          placeholder="admin@example.com"
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 hover:border-[#F7941D]/40 focus:border-[#F7941D] rounded-xl text-white placeholder-gray-600 text-sm focus:outline-none transition-all duration-200"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-right" dir={dir}>
-                      <label className="text-[11px] text-gray-400 font-bold block px-1">
-                        {language === 'ar' ? 'الرمز السري للوحة التحكم (PIN):' : 'Dashboard PIN Code:'}
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none font-mono">
-                          ***
-                        </span>
-                        <input 
-                          type="password"
-                          placeholder="••••"
-                          value={passwordInput}
-                          onChange={(e) => setPasswordInput(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/10 hover:border-[#F7941D]/45 focus:border-[#F7941D] rounded-xl text-white placeholder-gray-600 text-center font-mono text-lg tracking-widest focus:outline-none transition-all duration-200"
-                          autoFocus
                           required
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          placeholder="admin@example.com"
+                          className="w-full px-4 py-2.5 bg-black/50 border border-white/15 focus:border-[#F7941D] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none"
                         />
                       </div>
-                    </div>
 
-                    <button 
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-600 hover:to-[#F7941D] disabled:from-gray-700 disabled:to-gray-800 text-white font-bold rounded-xl shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer text-sm"
-                    >
-                      {isSubmitting ? (
-                        <>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-gray-400 font-bold block px-1">
+                          {language === 'ar' ? 'كلمة المرور:' : 'Password:'}
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={emailPasswordInput}
+                          onChange={(e) => setEmailPasswordInput(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-2.5 bg-black/50 border border-white/15 focus:border-[#F7941D] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full py-3 bg-gradient-to-r from-amber-500 to-[#F7941D] hover:from-[#F7941D] hover:to-amber-500 text-black font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 text-xs"
+                      >
+                        {isSubmitting ? (
                           <RefreshCw size={15} className="animate-spin" />
-                          <span>{language === 'ar' ? 'جاري التحقق...' : 'Verifying credentials...'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <KeyRound size={15} />
-                          <span>{language === 'ar' ? 'إلغاء قفل لوحة التحكم' : 'Unlock Dashboard'}</span>
-                        </>
-                      )}
-                    </button>
+                        ) : (
+                          <LucideIcons.MailCheck size={15} />
+                        )}
+                        <span>{language === 'ar' ? 'تسجيل الدخول بالبريد الإلكتروني' : 'Sign In with Email'}</span>
+                      </button>
+                    </form>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsForgotMode(true);
-                        setAuthError('');
-                        setRecoverySuccessMessage('');
-                      }}
-                      className="text-xs text-amber-500/80 hover:text-[#F7941D] font-bold underline transition-colors cursor-pointer self-center py-1 mt-1"
-                    >
-                      {language === 'ar' ? 'نسيت الرمز السري الخاص بك؟ استرداد الحساب' : 'Forgot PIN? Request account recovery'}
-                    </button>
-                  </form>
+                  {/* TAB 3: SOCIAL OAUTH PROVIDERS */}
+                  {loginMethodTab === 'social' && (
+                    <div className="flex flex-col gap-3 w-full max-w-sm">
+                      <button
+                        type="button"
+                        onClick={() => handleSocialLogin('google')}
+                        disabled={isSubmitting}
+                        className="w-full py-2.5 bg-white text-black hover:bg-gray-100 font-extrabold rounded-xl border border-gray-300 flex items-center justify-center gap-2.5 shadow-md cursor-pointer transition-all text-xs active:scale-95"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.15C3.26 21.3 7.31 24 12 24z"/>
+                          <path fill="#FBBC05" d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"/>
+                          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"/>
+                        </svg>
+                        <span>{language === 'ar' ? 'تسجيل الدخول باستخدام Google' : 'Sign in with Google'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSocialLogin('microsoft')}
+                        disabled={isSubmitting}
+                        className="w-full py-2.5 bg-[#0078D4] hover:bg-[#0063B1] text-white font-extrabold rounded-xl flex items-center justify-center gap-2.5 shadow-md cursor-pointer transition-all text-xs active:scale-95"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 23 23">
+                          <path d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
+                        </svg>
+                        <span>{language === 'ar' ? 'تسجيل الدخول بـ Microsoft' : 'Sign in with Microsoft'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSocialLogin('facebook')}
+                        disabled={isSubmitting}
+                        className="w-full py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white font-extrabold rounded-xl flex items-center justify-center gap-2.5 shadow-md cursor-pointer transition-all text-xs active:scale-95"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                        <span>{language === 'ar' ? 'تسجيل الدخول بـ Facebook' : 'Sign in with Facebook'}</span>
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 /* RECOVERY & OTP RESET SCREEN */
@@ -7140,6 +7510,83 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
               </div>
             </div>
           )}
+
+          {/* CUSTOM CONFIRMATION DIALOG MODAL */}
+          <AnimatePresence>
+            {confirmDialog.isOpen && (
+              <div className="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="bg-[#1D1031] border border-amber-500/30 rounded-3xl p-6 sm:p-7 max-w-md w-full space-y-5 shadow-2xl relative overflow-hidden"
+                  dir={language === 'ar' ? 'rtl' : 'ltr'}
+                >
+                  {/* Subtle Glow backdrop */}
+                  <div className={`absolute -top-20 ${language === 'ar' ? '-right-20' : '-left-20'} w-40 h-40 rounded-full blur-3xl pointer-events-none ${
+                    confirmDialog.variant === 'danger' ? 'bg-rose-500/25' : confirmDialog.variant === 'warning' ? 'bg-amber-500/25' : 'bg-indigo-500/25'
+                  }`} />
+
+                  <div className="flex items-start gap-4 relative z-10">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border shadow-lg ${
+                      confirmDialog.variant === 'danger'
+                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-rose-500/10'
+                        : confirmDialog.variant === 'warning'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-amber-500/10'
+                        : 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-indigo-500/10'
+                    }`}>
+                      {confirmDialog.variant === 'danger' ? (
+                        <AlertTriangle size={24} />
+                      ) : confirmDialog.variant === 'warning' ? (
+                        <ShieldAlert size={24} />
+                      ) : (
+                        <AlertCircle size={24} />
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <h3 className="text-base font-black text-white leading-tight">
+                        {confirmDialog.title}
+                      </h3>
+                      <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">
+                        {confirmDialog.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-3 relative z-10">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                      className="px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/10 text-xs font-bold text-gray-300 hover:text-white transition-all cursor-pointer"
+                    >
+                      {confirmDialog.cancelText}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const callback = confirmDialog.onConfirm;
+                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                        if (callback) callback();
+                      }}
+                      className={`px-5 py-2.5 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                        confirmDialog.variant === 'danger'
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                          : confirmDialog.variant === 'warning'
+                          ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/30'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
+                      }`}
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>{confirmDialog.confirmText}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
       )}

@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "PortfolioItem": {
+      "title": "Portfolio Item",
+      "description": "Represents a design project or portfolio entry",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "client": { "type": "string", "maxLength": 200 },
+        "year": { "type": "string", "maxLength": 20 },
+        "imageUrl": { "type": "string", "maxLength": 1000 },
+        "videoUrl": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "category"]
+    },
+    "AdminUser": {
+      "title": "Admin User",
+      "description": "Represents an authorized administrator or team member",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["owner", "admin", "supervisor", "editor", "member"] },
+        "addedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "pending", "suspended"] }
+      },
+      "required": ["email", "role"]
+    },
+    "Translation": {
+      "title": "Custom Translation",
+      "description": "Custom key-value translation strings for UI",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "maxLength": 200 },
+        "valueAr": { "type": "string", "maxLength": 2000 },
+        "valueEn": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["key"]
+    }
+  },
+  "firestore": {
+    "/portfolioItems/{itemId}": {
+      "schema": { "$ref": "#/entities/PortfolioItem" },
+      "description": "Collection of portfolio projects"
+    },
+    "/adminUsers/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Collection of authorized admin users and permissions"
+    },
+    "/translations/{key}": {
+      "schema": { "$ref": "#/entities/Translation" },
+      "description": "Custom language translation overrides"
+    }
+  }
+}
