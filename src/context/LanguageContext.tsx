@@ -29,6 +29,8 @@ interface LanguageContextType {
   setAllCustomTranslations: (trans: Record<Language, Record<string, string>>) => void;
   rawPartnerLogos: string[];
   setRawPartnerLogos: (logos: string[]) => void;
+  canUndo: boolean;
+  undoLastSave: () => void;
   saveAdminData: (data: {
     portfolioItems?: PortfolioItem[];
     categories?: CategoryItem[];
@@ -538,12 +540,31 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  interface UndoSnapshot {
+    portfolioItems?: PortfolioItem[];
+    categories?: CategoryItem[];
+    customTranslations?: Record<Language, Record<string, string>>;
+    partnerLogos?: string[];
+  }
+
+  const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
+
   const saveAdminData = (data: {
     portfolioItems?: PortfolioItem[];
     categories?: CategoryItem[];
     customTranslations?: Record<Language, Record<string, string>>;
     partnerLogos?: string[];
   }) => {
+    // Save current state as undo snapshot prior to modification
+    const currentSnapshot: UndoSnapshot = {
+      portfolioItems: JSON.parse(JSON.stringify(rawPortfolioItems)),
+      categories: JSON.parse(JSON.stringify(rawCategories)),
+      customTranslations: JSON.parse(JSON.stringify(customTranslations)),
+      partnerLogos: JSON.parse(JSON.stringify(rawPartnerLogos))
+    };
+
+    setUndoStack(prev => [currentSnapshot, ...prev].slice(0, 20));
+
     if (data.portfolioItems) {
       setRawPortfolioItemsState(data.portfolioItems);
       safeSetItem('manea_portfolio_items', JSON.stringify(data.portfolioItems));
@@ -561,6 +582,31 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       safeSetItem('manea_partner_logos', JSON.stringify(data.partnerLogos));
     }
     saveToServer(data);
+  };
+
+  const undoLastSave = () => {
+    if (undoStack.length === 0) return;
+    const [previousState, ...remainingStack] = undoStack;
+    setUndoStack(remainingStack);
+
+    if (previousState.portfolioItems) {
+      setRawPortfolioItemsState(previousState.portfolioItems);
+      safeSetItem('manea_portfolio_items', JSON.stringify(previousState.portfolioItems));
+    }
+    if (previousState.categories) {
+      setRawCategoriesState(previousState.categories);
+      safeSetItem('manea_categories', JSON.stringify(previousState.categories));
+    }
+    if (previousState.customTranslations) {
+      setCustomTranslationsState(previousState.customTranslations);
+      safeSetItem('manea_custom_translations', JSON.stringify(previousState.customTranslations));
+    }
+    if (previousState.partnerLogos) {
+      setRawPartnerLogosState(previousState.partnerLogos);
+      safeSetItem('manea_partner_logos', JSON.stringify(previousState.partnerLogos));
+    }
+
+    saveToServer(previousState);
   };
 
   const setRawPortfolioItems = (items: PortfolioItem[]) => {
@@ -666,6 +712,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setAllCustomTranslations,
       rawPartnerLogos,
       setRawPartnerLogos,
+      canUndo: undoStack.length > 0,
+      undoLastSave,
       saveAdminData
     }}>
       {children}

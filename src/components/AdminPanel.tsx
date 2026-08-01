@@ -6,7 +6,7 @@ import {
   Save, Eye, EyeOff, CheckCircle, AlertTriangle, ShieldAlert, AlertCircle, HelpCircle, Image as ImageIcon, 
   ChevronRight, Globe, KeyRound, LogOut, Copy, RefreshCw, Download, Search, Sparkles, ShieldCheck,
   Gauge, CalendarClock, CheckCircle2, Clock, FileEdit, Link, Zap, Activity, Layers, Laptop, Smartphone,
-  Users, UserPlus, Shield, UserCheck, Mail
+  Users, UserPlus, Shield, UserCheck, Mail, Minus, Square, Maximize2, Minimize2, RotateCcw, ChevronUp, Wrench
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
@@ -426,10 +426,15 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
     rawPartnerLogos,
     setRawPartnerLogos,
     saveAdminData,
+    canUndo,
+    undoLastSave,
     isVisualEditorActive,
     setIsVisualEditorActive,
     t 
   } = useLanguage();
+
+  // Window controls state: normal, maximized, minimized
+  const [windowState, setWindowState] = useState<'normal' | 'maximized' | 'minimized'>('normal');
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('manea_admin_auth') === 'true';
@@ -1507,6 +1512,216 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
     }
   };
 
+  // Automated Link Repair Helper (Fix broken URLs with extensions, protocols, Unsplash params or fallbacks)
+  const handleAutoRepairBrokenLinks = async () => {
+    setIsCheckingLinks(true);
+    showNotification(
+      language === 'ar' 
+        ? '⚙️ جاري فحص واختبار وإصلاح الروابط التالفة تلقائياً...' 
+        : '⚙️ Analyzing, testing, and auto-repairing broken links...', 
+      'success'
+    );
+
+    const checkSingleUrl = (url: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        if (!url || !url.trim()) return resolve(false);
+        if (url.startsWith('data:image/') || url.startsWith('data:video/')) return resolve(true);
+        if (isVideoUrl(url)) return resolve(true);
+
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+        setTimeout(() => resolve(false), 3000);
+      });
+    };
+
+    const repairUrl = async (url: string, type: 'image' | 'video' | 'logo'): Promise<string> => {
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        return type === 'logo'
+          ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80'
+          : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+      }
+
+      let cleaned = url.trim().replace(/^["']|["']$/g, '').replace(/\\/g, '');
+
+      // 1. If already valid
+      if (await checkSingleUrl(cleaned)) return cleaned;
+
+      // 2. Fix missing protocol
+      if (cleaned.startsWith('//')) {
+        const testUrl = 'https:' + cleaned;
+        if (await checkSingleUrl(testUrl)) return testUrl;
+        cleaned = testUrl;
+      } else if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://') && !cleaned.startsWith('data:')) {
+        if (cleaned.includes('.') && !cleaned.includes(' ')) {
+          const testWithHttps = 'https://' + cleaned;
+          if (await checkSingleUrl(testWithHttps)) return testWithHttps;
+          cleaned = testWithHttps;
+        }
+      }
+
+      // 3. Imgur sharing link transformation (imgur.com/ABC -> i.imgur.com/ABC.png)
+      if (cleaned.includes('imgur.com/') && !cleaned.includes('i.imgur.com')) {
+        const match = cleaned.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+        if (match && match[1]) {
+          const imgurDirect = `https://i.imgur.com/${match[1]}.png`;
+          if (await checkSingleUrl(imgurDirect)) return imgurDirect;
+        }
+      }
+
+      // 4. Google Drive sharing link transformation
+      if (cleaned.includes('drive.google.com')) {
+        const fileIdMatch = cleaned.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleaned.match(/id=([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch && fileIdMatch[1]) {
+          const fileId = fileIdMatch[1];
+          const driveDirect1 = `https://lh3.googleusercontent.com/d/${fileId}`;
+          const driveDirect2 = `https://drive.google.com/uc?export=view&id=${fileId}`;
+          if (await checkSingleUrl(driveDirect1)) return driveDirect1;
+          if (await checkSingleUrl(driveDirect2)) return driveDirect2;
+        }
+      }
+
+      // 5. Dropbox sharing link transformation
+      if (cleaned.includes('dropbox.com')) {
+        const dropboxDirect = cleaned.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
+        if (await checkSingleUrl(dropboxDirect)) return dropboxDirect;
+      }
+
+      // 6. Unsplash URLs parameter fix
+      if (cleaned.includes('images.unsplash.com')) {
+        let fixedUnsplash = cleaned;
+        if (!fixedUnsplash.includes('?')) {
+          fixedUnsplash += '?auto=format&fit=crop&w=800&q=80';
+        } else if (!fixedUnsplash.includes('auto=format')) {
+          fixedUnsplash += '&auto=format&fit=crop&w=800&q=80';
+        }
+        if (await checkSingleUrl(fixedUnsplash)) return fixedUnsplash;
+      }
+
+      // 7. Missing image extension heuristic (.png, .jpg, .webp, .jpeg, .svg)
+      const hasExtension = /\.(png|jpg|jpeg|webp|gif|svg|avif|mp4|webm)(\?.*)?$/i.test(cleaned);
+      if (!hasExtension) {
+        const extensionsToTry = ['.png', '.jpg', '.webp', '.jpeg'];
+        for (const ext of extensionsToTry) {
+          const testUrl = cleaned.includes('?') 
+            ? cleaned.replace('?', `${ext}?`)
+            : `${cleaned}${ext}`;
+          if (await checkSingleUrl(testUrl)) return testUrl;
+        }
+      }
+
+      // 8. Trailing period or slash fix (e.g. image. or logo.)
+      if (cleaned.endsWith('.') || cleaned.endsWith('/')) {
+        const base = cleaned.replace(/[./]+$/, '');
+        for (const ext of ['.png', '.jpg', '.webp']) {
+          const testUrl = base + ext;
+          if (await checkSingleUrl(testUrl)) return testUrl;
+        }
+      }
+
+      // 9. If url fails all heuristics, replace with a verified working high-definition asset
+      const defaultProjectImage = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+      const defaultLogoImage = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80';
+      return type === 'logo' ? defaultLogoImage : defaultProjectImage;
+    };
+
+    let repairedCount = 0;
+
+    // Process rawPortfolioItems
+    const updatedItems = await Promise.all(
+      rawPortfolioItems.map(async (item) => {
+        let itemChanged = false;
+        let mainImg = item.image;
+        let vidUrl = item.videoUrl;
+        let galleryImgs = Array.isArray(item.gallery) ? [...item.gallery] : [];
+
+        if (!(await checkSingleUrl(mainImg))) {
+          const fixed = await repairUrl(mainImg, 'image');
+          if (fixed !== mainImg) {
+            mainImg = fixed;
+            itemChanged = true;
+            repairedCount++;
+          }
+        }
+
+        if (vidUrl && !(await checkSingleUrl(vidUrl))) {
+          const fixed = await repairUrl(vidUrl, 'video');
+          if (fixed !== vidUrl) {
+            vidUrl = fixed;
+            itemChanged = true;
+            repairedCount++;
+          }
+        }
+
+        for (let i = 0; i < galleryImgs.length; i++) {
+          if (!(await checkSingleUrl(galleryImgs[i]))) {
+            const fixed = await repairUrl(galleryImgs[i], 'image');
+            if (fixed !== galleryImgs[i]) {
+              galleryImgs[i] = fixed;
+              itemChanged = true;
+              repairedCount++;
+            }
+          }
+        }
+
+        if (itemChanged) {
+          return {
+            ...item,
+            image: mainImg,
+            videoUrl: vidUrl,
+            gallery: galleryImgs
+          };
+        }
+        return item;
+      })
+    );
+
+    // Process localPartnerLogos
+    const updatedLogos = await Promise.all(
+      localPartnerLogos.map(async (logoUrl) => {
+        if (!(await checkSingleUrl(logoUrl))) {
+          const fixed = await repairUrl(logoUrl, 'logo');
+          if (fixed !== logoUrl) {
+            repairedCount++;
+            return fixed;
+          }
+        }
+        return logoUrl;
+      })
+    );
+
+    setRawPortfolioItems(updatedItems);
+    setLocalPartnerLogos(updatedLogos);
+    setRawPartnerLogos(updatedLogos);
+
+    // Save changes to persistent storage & Firebase
+    saveAdminData({ 
+      portfolioItems: updatedItems, 
+      partnerLogos: updatedLogos 
+    });
+
+    // Re-run scanner to update UI state
+    await runBrokenLinkCheck();
+    setIsCheckingLinks(false);
+
+    if (repairedCount > 0) {
+      showNotification(
+        language === 'ar'
+          ? `🔧 تم بنجاح إصلاح ${repairedCount} رابطاً تالفاً وتفعيل الصور وحفظ البيانات تلقائياً!`
+          : `🔧 Auto-repaired and saved ${repairedCount} broken link(s) successfully!`,
+        'success'
+      );
+    } else {
+      showNotification(
+        language === 'ar'
+          ? '✅ جميع الروابط تعمل بكفاءة عالية وبدون أي مشاكل!'
+          : '✅ All links are active and working efficiently!',
+        'success'
+      );
+    }
+  };
+
   // Site Performance WebP Auto-Optimizer Helper
   const handleOptimizeWebP = () => {
     let count = 0;
@@ -2461,7 +2676,52 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
 
   const adminPortalContent = (
     <AnimatePresence>
-      {isOpen && (
+      {isOpen && windowState === 'minimized' && (
+        <motion.div
+          key="admin-taskbar-dock"
+          initial={{ opacity: 0, scale: 0.8, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 30 }}
+          onClick={() => setWindowState('normal')}
+          className="fixed bottom-4 left-4 sm:left-6 z-[999999] bg-[#140B2D]/95 border-2 border-[#F7941D] backdrop-blur-2xl px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3.5 cursor-pointer hover:bg-[#1E113F] transition-all hover:scale-105 group text-white font-sans"
+          title={language === 'ar' ? 'انقر لاستعادة نافذة لوحة التحكم' : 'Click to restore Admin Panel'}
+        >
+          <div className="w-9 h-9 rounded-xl bg-[#F7941D]/20 text-[#F7941D] flex items-center justify-center border border-[#F7941D]/40 group-hover:bg-[#F7941D] group-hover:text-black transition-all">
+            <LayoutDashboard size={18} className="animate-pulse" />
+          </div>
+          <div className="text-right">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-white block">
+                {language === 'ar' ? 'لوحة التحكم (مصغرة)' : 'Admin Panel (Minimized)'}
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            </div>
+            <span className="text-[10px] text-amber-300 font-medium block">
+              {language === 'ar' ? 'انقر للاستعادة والشاشة الكاملة 🗗' : 'Click to restore window 🗗'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 ms-2 text-gray-300 group-hover:text-amber-300 transition-colors">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setWindowState('maximized'); }}
+              className="p-1 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white"
+              title={language === 'ar' ? 'تكبير للشاشة الكاملة' : 'Maximize to full screen'}
+            >
+              <Maximize2 size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setWindowState('normal'); }}
+              className="p-1 hover:bg-white/10 rounded-lg text-amber-400"
+              title={language === 'ar' ? 'استعادة الحجم الطبيعي' : 'Restore normal size'}
+            >
+              <ChevronUp size={16} />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {isOpen && windowState !== 'minimized' && (
         <motion.div 
           key="admin-overlay"
           initial={{ opacity: 0 }}
@@ -2496,7 +2756,11 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-6xl bg-[#0D071E] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-white"
+          className={
+            windowState === 'maximized'
+              ? "relative w-screen h-screen max-w-none max-h-screen bg-[#0D071E] rounded-none overflow-hidden shadow-2xl flex flex-col text-white z-50"
+              : "relative w-full max-w-6xl bg-[#0D071E] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-white"
+          }
         >
           {/* Header background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[75%] h-36 bg-[#F7941D]/5 rounded-full blur-[90px] pointer-events-none" />
@@ -2523,7 +2787,7 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
               </div>
             </div>
 
-            {/* Dedicated Un-crowded Close & Preview Actions */}
+            {/* Dedicated Un-crowded Close & Preview Actions + Windows Style Control Box */}
             <div className="flex items-center gap-2.5 shrink-0">
               {isAuthenticated && (
                 <button
@@ -2547,15 +2811,35 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
                 <span className="hidden sm:inline">{language === 'ar' ? 'المعاينة' : 'Preview'}</span>
               </button>
 
-              <button 
-                type="button"
-                onClick={onClose}
-                className="px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-sm active:scale-95"
-                title={language === 'ar' ? 'إغلاق لوحة التحكم' : 'Close Admin Panel'}
-              >
-                <X size={16} className="text-gray-300 shrink-0" />
-                <span>{language === 'ar' ? 'إغلاق اللوحة' : 'Close'}</span>
-              </button>
+              {/* Windows Window Controls */}
+              <div className="flex items-center gap-1 bg-black/40 border border-white/15 p-1 rounded-xl shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setWindowState('minimized')}
+                  className="p-1.5 rounded-lg hover:bg-amber-500/20 text-gray-300 hover:text-amber-300 transition-all cursor-pointer"
+                  title={language === 'ar' ? 'تصغير أسفل الشاشة (شريط المهام)' : 'Minimize to taskbar'}
+                >
+                  <Minus size={15} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWindowState(prev => prev === 'maximized' ? 'normal' : 'maximized')}
+                  className="p-1.5 rounded-lg hover:bg-blue-500/20 text-gray-300 hover:text-blue-300 transition-all cursor-pointer"
+                  title={windowState === 'maximized' ? (language === 'ar' ? 'استعادة الحجم الطبيعي' : 'Restore window') : (language === 'ar' ? 'تكبير الشاشة' : 'Maximize window')}
+                >
+                  {windowState === 'maximized' ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg hover:bg-rose-500/30 text-rose-300 hover:text-white transition-all cursor-pointer"
+                  title={language === 'ar' ? 'إغلاق لوحة التحكم' : 'Close Admin Panel'}
+                >
+                  <X size={15} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2585,6 +2869,24 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
                 >
                   <Save size={14} className={isSubmitting ? "animate-spin" : ""} />
                   <span>{isSubmitting ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (language === 'ar' ? 'حفظ التعديلات' : 'Save Changes')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    undoLastSave();
+                    showNotification(language === 'ar' ? '↩️ تم التراجع عن التعديل الأخير بنجاح!' : '↩️ Undone last edit successfully!');
+                  }}
+                  disabled={!canUndo}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                    canUndo
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20 active:scale-95'
+                      : 'bg-white/5 text-gray-500 border border-white/10 opacity-50 cursor-not-allowed'
+                  }`}
+                  title={language === 'ar' ? 'التراجع عن آخر تغيير تم حفظه في لوحة التحكم' : 'Undo last saved modification'}
+                >
+                  <RotateCcw size={14} />
+                  <span>{language === 'ar' ? '↩️ تراجع' : '↩️ Undo'}</span>
                 </button>
 
                 <button
@@ -3836,16 +4138,59 @@ function AdminPanelContent({ isOpen, onClose }: AdminPanelProps) {
                               </button>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={runBrokenLinkCheck}
-                              disabled={isCheckingLinks}
-                              className="px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50 shrink-0"
-                            >
-                              <Link size={13} className={isCheckingLinks ? "animate-spin" : ""} />
-                              <span>{isCheckingLinks ? (language === 'ar' ? 'جاري الفحص...' : 'Checking...') : (language === 'ar' ? 'فحص الروابط' : 'Check Links')}</span>
-                            </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={runBrokenLinkCheck}
+                                disabled={isCheckingLinks}
+                                className="px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                              >
+                                <Link size={13} className={isCheckingLinks ? "animate-spin" : ""} />
+                                <span>{isCheckingLinks ? (language === 'ar' ? 'جاري الفحص...' : 'Checking...') : (language === 'ar' ? 'فحص الروابط' : 'Check Links')}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleAutoRepairBrokenLinks}
+                                disabled={isCheckingLinks}
+                                className="px-3 py-1 bg-gradient-to-r from-amber-600 to-[#F7941D] hover:from-[#F7941D] hover:to-amber-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50 shadow-md"
+                                title={language === 'ar' ? 'إصلاح الروابط التالفة تلقائياً واختبار الامتدادات والصور' : 'Auto-repair broken links'}
+                              >
+                                <Wrench size={13} className={isCheckingLinks ? "animate-spin" : ""} />
+                                <span>{language === 'ar' ? 'إصلاح الروابط التالفة' : 'Auto-Repair Links'}</span>
+                              </button>
+                            </div>
                           </div>
+
+                          {/* Broken Links Alert Banner if detected */}
+                          {brokenLinksList.length > 0 && (
+                            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-rose-200 animate-fadeIn">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle size={18} className="text-rose-400 shrink-0" />
+                                <div>
+                                  <span className="font-bold">
+                                    {language === 'ar' 
+                                      ? `تم اكتشاف ${brokenLinksList.length} روابط تالفة لا تعمل!` 
+                                      : `Detected ${brokenLinksList.length} broken links!`}
+                                  </span>
+                                  <p className="text-[11px] text-rose-300/80">
+                                    {language === 'ar'
+                                      ? 'يمكنك الضغط على زر الإصلاح التلقائي لإتاحة الامتدادات (.png/.jpg) أو استبدالها بروابط تعمل.'
+                                      : 'Click auto-repair to fix extensions or substitute with healthy working URLs.'}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleAutoRepairBrokenLinks}
+                                disabled={isCheckingLinks}
+                                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-sm"
+                              >
+                                <Wrench size={13} />
+                                <span>{language === 'ar' ? 'إصلاح الكل الآن' : 'Fix All Now'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Drag and Drop Helper Bar */}

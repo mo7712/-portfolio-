@@ -117,6 +117,8 @@ html.lenis, html.lenis body {
   --mouse-x: 50%;
   --mouse-y: 50%;
   --glow-opacity: 0;
+  border-radius: 1.5rem;
+  transition: border-radius 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .partner-card::before {
@@ -140,6 +142,8 @@ html.lenis, html.lenis body {
 .partner-card.is-touched,
 .partner-card:active {
   --glow-opacity: 1;
+  border-radius: 2.25rem;
+  box-shadow: 0 25px 45px -12px rgba(247, 148, 29, 0.28), 0 14px 28px -8px rgba(31, 12, 59, 0.35);
 }
 
 .partner-card > * {
@@ -150,9 +154,16 @@ html.lenis, html.lenis body {
 @media (max-width: 640px) {
   .partner-card {
     aspect-ratio: 16 / 9;
-    width: 9.5rem;
+    width: clamp(8.5rem, 36vw, 10rem);
     height: auto;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 1.25rem;
+  }
+  
+  .partner-card:hover,
+  .partner-card.is-touched,
+  .partner-card:active {
+    border-radius: 1.75rem;
   }
 }
 

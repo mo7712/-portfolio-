@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, Save, X, Edit3, Image as ImageIcon, Globe, Check, 
-  RefreshCw, LayoutDashboard, Zap, FileText, Upload, Copy, Lock
+  RefreshCw, LayoutDashboard, Zap, FileText, Upload, Copy, Lock, RotateCcw
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -72,6 +72,8 @@ export const VisualEditorBar: React.FC<VisualEditorBarProps> = ({ onOpenAdmin })
     customTranslations, 
     setAllCustomTranslations,
     saveAdminData,
+    canUndo,
+    undoLastSave,
     t
   } = useLanguage();
 
@@ -82,6 +84,11 @@ export const VisualEditorBar: React.FC<VisualEditorBarProps> = ({ onOpenAdmin })
   const showToast = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleUndo = () => {
+    undoLastSave();
+    showToast(language === 'ar' ? '↩️ تم التراجع عن التعديل الأخير بنجاح!' : '↩️ Undone last edit successfully!');
   };
 
   const handleSaveAllEdits = async () => {
@@ -173,6 +180,21 @@ export const VisualEditorBar: React.FC<VisualEditorBarProps> = ({ onOpenAdmin })
 
           <button
             type="button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className={`px-3 py-1.5 font-bold rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95 ${
+              canUndo 
+                ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20' 
+                : 'bg-white/5 text-gray-500 border border-white/10 opacity-50 cursor-not-allowed'
+            }`}
+            title={language === 'ar' ? 'التراجع عن التعديل الأخير وحفظ الحالة السابقة' : 'Undo last edit'}
+          >
+            <RotateCcw size={14} />
+            <span>{language === 'ar' ? '↩️ تراجع' : '↩️ Undo'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleTranslateAllEdits}
             disabled={isTranslatingAll}
             className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
@@ -219,16 +241,18 @@ export const VisualEditorBar: React.FC<VisualEditorBarProps> = ({ onOpenAdmin })
     </div>
   );
 };
-
-// Bottom Creative AI & Custom Motion Prompt Command Bar
 export const VisualPromptBottomBar: React.FC = () => {
-  const { language, updateTranslationKey, customTranslations, saveAdminData } = useLanguage();
+  const { language, customTranslations, saveAdminData, canUndo, undoLastSave } = useLanguage();
   const [promptText, setPromptText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [promptFeedback, setPromptFeedback] = useState<string | null>(null);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'scroll' | 'color' | 'motion' | 'media' | 'text'>('all');
   const [motionMultiplier, setMotionMultiplier] = useState<number>(1);
+
+  // Preview & Command Execution State
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previewCommand, setPreviewCommand] = useState<string | null>(null);
 
   const categoryPrompts = [
     { ar: '⚡ تمرير سلس وسريع', en: '⚡ Ultra smooth scroll', type: 'scroll', promptAr: 'اجعل التمرير فائق السلاسة والسرعة', promptEn: 'Make scroll ultra smooth and responsive' },
@@ -242,45 +266,68 @@ export const VisualPromptBottomBar: React.FC = () => {
     ? categoryPrompts 
     : categoryPrompts.filter(p => p.type === activeCategoryFilter);
 
-  const handleExecutePrompt = async (textToRun?: string) => {
+  const applyVisualEffect = (cmd: string) => {
+    const lower = cmd.toLowerCase();
+    if (lower.includes('تمرير') || lower.includes('scroll') || lower.includes('سلاسة')) {
+      document.documentElement.style.scrollBehavior = 'smooth';
+      document.body.classList.add('smooth-scrolling-active');
+    } else if (lower.includes('حركة') || lower.includes('موشن') || lower.includes('motion') || lower.includes('سرعة') || lower.includes('سرع')) {
+      const newSpeed = `${0.3 / motionMultiplier}s`;
+      document.body.style.setProperty('--motion-speed', newSpeed);
+    } else if (lower.includes('ألوان') || lower.includes('لون') || lower.includes('color') || lower.includes('سمة') || lower.includes('ذهبي') || lower.includes('كحلي')) {
+      document.documentElement.style.setProperty('--primary-accent', '#F7941D');
+      document.documentElement.style.setProperty('--navy-bg', '#120B20');
+    } else if (lower.includes('فيديو') || lower.includes('متحركة') || lower.includes('gif') || lower.includes('video') || lower.includes('وسائط')) {
+      const videos = document.querySelectorAll('video');
+      videos.forEach(v => {
+        v.playbackRate = 1.1;
+        v.style.filter = 'contrast(1.08) brightness(1.05)';
+      });
+    } else if (lower.includes('عنوان') || lower.includes('نص') || lower.includes('خط') || lower.includes('text') || lower.includes('title')) {
+      document.body.style.setProperty('--title-tracking', '0.03em');
+    }
+  };
+
+  const removePreviewEffects = () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.body.classList.remove('smooth-scrolling-active');
+    document.body.style.removeProperty('--motion-speed');
+    document.body.style.removeProperty('--primary-accent');
+    document.body.style.removeProperty('--navy-bg');
+    document.body.style.removeProperty('--title-tracking');
+  };
+
+  // 1. Preview Command before Execution
+  const handlePreviewPrompt = (textToRun?: string) => {
     const cmd = (textToRun || promptText).trim();
     if (!cmd) return;
 
-    setIsProcessing(true);
-    setPromptFeedback(language === 'ar' ? '⏳ جاري تنفيذ أمر التعديل البصري والحركة...' : '⏳ Executing visual & motion prompt...');
+    setPreviewCommand(cmd);
+    setIsPreviewMode(true);
+    applyVisualEffect(cmd);
+    setPromptFeedback(
+      language === 'ar'
+        ? `👁️ جاري المعاينة المباشرة للأمر: "${cmd}"! انقر "تطبيق وتحديث" للحفظ النهائي أو "إلغاء/حذف" للتراجع.`
+        : `👁️ Live Previewing command: "${cmd}"! Click "Confirm & Apply" to publish or "Discard" to cancel.`
+    );
+  };
 
-    await new Promise(res => setTimeout(res, 600));
+  // 2. Confirm & Publish Command
+  const handleConfirmExecutePrompt = async () => {
+    const cmd = previewCommand || promptText.trim();
+    if (!cmd) return;
+
+    setIsProcessing(true);
+    setPromptFeedback(language === 'ar' ? '⏳ جاري اعتماد وتطبيق أمر التعديل على الاستضافة والموقع...' : '⏳ Applying and publishing prompt live...');
+
+    await new Promise(res => setTimeout(res, 500));
 
     try {
-      const lower = cmd.toLowerCase();
-
-      if (lower.includes('تمرير') || lower.includes('scroll') || lower.includes('سلاسة')) {
-        document.documentElement.style.scrollBehavior = 'smooth';
-        document.body.classList.add('smooth-scrolling-active');
-        setPromptFeedback(language === 'ar' ? '✅ تم تفعيل التمرير البصري السلس للغاية بنجاح!' : '✅ Ultra smooth scroll active!');
-      } else if (lower.includes('حركة') || lower.includes('موشن') || lower.includes('motion') || lower.includes('سرعة') || lower.includes('سرع')) {
-        const newSpeed = `${0.3 / motionMultiplier}s`;
-        document.body.style.setProperty('--motion-speed', newSpeed);
-        setPromptFeedback(language === 'ar' ? `🚀 تم تسريع حركة الانيميشن إلى (${motionMultiplier}x - ${newSpeed})!` : `🚀 Motion speed boosted (${motionMultiplier}x)!`);
-      } else if (lower.includes('ألوان') || lower.includes('لون') || lower.includes('color') || lower.includes('سمة') || lower.includes('ذهبي') || lower.includes('كحلي')) {
-        document.documentElement.style.setProperty('--primary-accent', '#F7941D');
-        document.documentElement.style.setProperty('--navy-bg', '#120B20');
-        setPromptFeedback(language === 'ar' ? '🎨 تم تطبيق السمة الملكية (الكحلي الذهبي) بنجاح!' : '🎨 Applied Navy & Gold luxury palette!');
-      } else if (lower.includes('فيديو') || lower.includes('متحركة') || lower.includes('gif') || lower.includes('video') || lower.includes('وسائط')) {
-        const videos = document.querySelectorAll('video');
-        videos.forEach(v => {
-          v.playbackRate = 1.1;
-          v.style.filter = 'contrast(1.08) brightness(1.05)';
-        });
-        setPromptFeedback(language === 'ar' ? '🎬 تم تحسين جودة وتباين تشغيل الفيديوهات والمتحركة!' : '🎬 Enhanced video & GIF media playback!');
-      } else if (lower.includes('عنوان') || lower.includes('نص') || lower.includes('خط') || lower.includes('text') || lower.includes('title')) {
-        document.body.style.setProperty('--title-tracking', '0.03em');
-        setPromptFeedback(language === 'ar' ? '📝 تم ضبط وتنسيق تباعد العناوين والنصوص بنجاح!' : '📝 Title typography & tracking auto-formatted!');
-      } else {
-        setPromptFeedback(language === 'ar' ? `✨ تم تنفيذ أمر التعديل النصي البصري: "${cmd}"!` : `✨ Executed command: "${cmd}"!`);
-      }
-
+      applyVisualEffect(cmd);
+      setPromptFeedback(language === 'ar' ? `🚀 تم اعتماد وتحديث التعديل بنجاح: "${cmd}"!` : `🚀 Applied & published prompt: "${cmd}"!`);
       setPromptText('');
+      setPreviewCommand(null);
+      setIsPreviewMode(false);
       await saveAdminData({ customTranslations });
     } catch (e) {
       setPromptFeedback(language === 'ar' ? 'حدث خطأ أثناء تنفيذ الأمر' : 'Error executing prompt command');
@@ -290,13 +337,30 @@ export const VisualPromptBottomBar: React.FC = () => {
     }
   };
 
+  // 3. Discard / Delete Prompt Draft
+  const handleDiscardPrompt = () => {
+    removePreviewEffects();
+    setPromptText('');
+    setPreviewCommand(null);
+    setIsPreviewMode(false);
+    setPromptFeedback(language === 'ar' ? '🗑️ تم إلغاء وحذف مسودة الأمر وإعادة المظهر الافتراضي' : '🗑️ Discarded prompt draft and restored view');
+    setTimeout(() => setPromptFeedback(null), 3000);
+  };
+
+  // 4. Undo Last Action
+  const handleUndoAction = () => {
+    undoLastSave();
+    removePreviewEffects();
+    setPromptFeedback(language === 'ar' ? '↩️ تم التراجع عن آخر تعديل تم حفظه بنجاح!' : '↩️ Reverted to previous saved state!');
+    setTimeout(() => setPromptFeedback(null), 3000);
+  };
+
   const handleResetPrompts = () => {
-    document.documentElement.style.scrollBehavior = 'auto';
-    document.body.style.removeProperty('--motion-speed');
-    document.body.style.removeProperty('--primary-accent');
-    document.body.style.removeProperty('--navy-bg');
-    document.body.style.removeProperty('--title-tracking');
+    removePreviewEffects();
     setMotionMultiplier(1);
+    setPromptText('');
+    setPreviewCommand(null);
+    setIsPreviewMode(false);
     setPromptFeedback(language === 'ar' ? '🔄 تم إعادة ضبط كافة الأوامر والتأثيرات إلى الحالة الافتراضية' : '🔄 Reset all visual prompts to default state');
     setTimeout(() => setPromptFeedback(null), 3000);
   };
@@ -324,18 +388,33 @@ export const VisualPromptBottomBar: React.FC = () => {
                   <h4 className="font-black text-xs text-amber-300 flex items-center gap-2">
                     <span>{language === 'ar' ? 'مربع الأوامر البصرية والتعديل الإبداعي (Creative AI Prompt Bar)' : 'Creative AI Visual Prompt Bar'}</span>
                     <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-extrabold">
-                      {language === 'ar' ? 'تعديل فوري ⚡' : 'Instant Mode ⚡'}
+                      {language === 'ar' ? 'معاينة وتأكيد 👁️' : 'Preview & Confirm Mode 👁️'}
                     </span>
                   </h4>
                   <p className="text-[10px] text-gray-400">
                     {language === 'ar'
-                      ? 'اكتب أي أمر نصي لتعديل التمرير، السرعة، الحركة، النصوص، الفيديوهات أو الألوان بشكل مباشر ودقيق.'
-                      : 'Type any natural command to adjust scrolling, animations, texts, videos or styling instantly.'}
+                      ? 'قم بأمر التعديل ثم عاين النتيجة مباشرة قبل الاعتماد والتحديث على الاستضافة والموقع.'
+                      : 'Run visual prompt with live preview before committing & publishing live.'}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleUndoAction}
+                  disabled={!canUndo}
+                  className={`px-2.5 py-1 text-[10px] rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
+                    canUndo 
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black font-bold border-amber-300' 
+                      : 'bg-white/5 text-gray-500 border-white/10 opacity-40 cursor-not-allowed'
+                  }`}
+                  title={language === 'ar' ? 'التراجع عن آخر تعديل تم حفظه' : 'Undo last edit'}
+                >
+                  <RotateCcw size={11} />
+                  <span>{language === 'ar' ? 'تراجع ↩️' : 'Undo ↩️'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleResetPrompts}
@@ -391,7 +470,7 @@ export const VisualPromptBottomBar: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setMotionMultiplier(spd);
-                      handleExecutePrompt(language === 'ar' ? `سرع الحركة ${spd}x` : `speed ${spd}x`);
+                      handlePreviewPrompt(language === 'ar' ? `سرع الحركة ${spd}x` : `speed ${spd}x`);
                     }}
                     className={`px-1.5 py-0.5 rounded-lg transition-colors cursor-pointer ${
                       motionMultiplier === spd ? 'bg-[#F7941D] text-black font-black' : 'text-gray-400 hover:text-white'
@@ -404,7 +483,7 @@ export const VisualPromptBottomBar: React.FC = () => {
             </div>
 
             {/* Input Prompt Box Form */}
-            <form onSubmit={(e) => { e.preventDefault(); handleExecutePrompt(); }} className="flex items-center gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); handlePreviewPrompt(); }} className="flex items-center gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
@@ -420,33 +499,59 @@ export const VisualPromptBottomBar: React.FC = () => {
                 <Edit3 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 pointer-events-none" />
               </div>
 
+              {/* Preview Button */}
               <button
                 type="submit"
                 disabled={isProcessing || !promptText.trim()}
-                className="px-5 py-2.5 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-500 hover:to-amber-700 active:scale-95 text-black font-extrabold rounded-2xl shadow-xl transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 active:scale-95 text-white font-extrabold rounded-2xl shadow-xl transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
+                title={language === 'ar' ? 'معاينة النتيجة أولاً قبل الحفظ' : 'Preview result live first'}
+              >
+                <Globe size={15} />
+                <span>{language === 'ar' ? '👁️ معاينة الأمر' : '👁️ Preview'}</span>
+              </button>
+
+              {/* Confirm / Apply Button */}
+              <button
+                type="button"
+                onClick={handleConfirmExecutePrompt}
+                disabled={isProcessing || (!promptText.trim() && !previewCommand)}
+                className="px-4 py-2.5 bg-gradient-to-r from-[#F7941D] to-amber-600 hover:from-amber-500 hover:to-amber-700 active:scale-95 text-black font-extrabold rounded-2xl shadow-xl transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
               >
                 {isProcessing ? (
                   <>
                     <RefreshCw size={15} className="animate-spin" />
-                    <span>{language === 'ar' ? 'جاري التنفيذ...' : 'Executing...'}</span>
+                    <span>{language === 'ar' ? 'جاري التحديث...' : 'Updating...'}</span>
                   </>
                 ) : (
                   <>
                     <Zap size={15} />
-                    <span>{language === 'ar' ? 'تطبيق الأمر 🚀' : 'Run Prompt 🚀'}</span>
+                    <span>{language === 'ar' ? 'تطبيق وتحديث 🚀' : 'Confirm & Apply 🚀'}</span>
                   </>
                 )}
               </button>
+
+              {/* Discard / Delete Prompt Button */}
+              {(promptText.trim() || previewCommand) && (
+                <button
+                  type="button"
+                  onClick={handleDiscardPrompt}
+                  className="px-3 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold rounded-2xl flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  title={language === 'ar' ? 'حذف مسودة الأمر وإلغاء المعاينة' : 'Discard draft & cancel preview'}
+                >
+                  <X size={15} />
+                  <span>{language === 'ar' ? '🗑️ حذف' : '🗑️ Delete'}</span>
+                </button>
+              )}
             </form>
 
             {/* Quick Prompt Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[10px] no-scrollbar">
-              <span className="text-gray-400 font-bold shrink-0">{language === 'ar' ? 'مقترحات سريعة:' : 'Quick Actions:'}</span>
+              <span className="text-gray-400 font-bold shrink-0">{language === 'ar' ? 'مقترحات سريعة للمعاينة:' : 'Quick Actions:'}</span>
               {filteredPrompts.map((qp, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleExecutePrompt(language === 'ar' ? qp.promptAr : qp.promptEn)}
+                  onClick={() => handlePreviewPrompt(language === 'ar' ? qp.promptAr : qp.promptEn)}
                   className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-[#F7941D]/20 border border-white/10 hover:border-[#F7941D]/50 text-gray-300 hover:text-amber-300 font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 flex items-center gap-1"
                 >
                   <span>{language === 'ar' ? qp.ar : qp.en}</span>
@@ -454,15 +559,30 @@ export const VisualPromptBottomBar: React.FC = () => {
               ))}
             </div>
 
-            {/* Live Prompt Processing Feedback */}
+            {/* Live Prompt Processing & Preview Feedback */}
             {promptFeedback && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-between"
+                className={`p-2.5 rounded-xl font-bold text-xs flex items-center justify-between border ${
+                  isPreviewMode 
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-200'
+                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                }`}
               >
                 <span>{promptFeedback}</span>
-                {isProcessing && <RefreshCw size={14} className="animate-spin text-emerald-400" />}
+                <div className="flex items-center gap-2">
+                  {isPreviewMode && (
+                    <button
+                      type="button"
+                      onClick={handleConfirmExecutePrompt}
+                      className="px-2.5 py-1 bg-[#F7941D] text-black font-extrabold rounded-lg text-[10px] shadow hover:bg-amber-400 cursor-pointer"
+                    >
+                      {language === 'ar' ? 'اعتماد التعديل الان 🚀' : 'Confirm Now 🚀'}
+                    </button>
+                  )}
+                  {isProcessing && <RefreshCw size={14} className="animate-spin" />}
+                </div>
               </motion.div>
             )}
           </motion.div>

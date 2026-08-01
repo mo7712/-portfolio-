@@ -487,15 +487,19 @@ const CinematicTitle = ({ text }: { text: string; key?: string }) => {
 
   const wordVariants = {
     hidden: { 
-      y: "100%", 
-      opacity: 0 
+      y: 50, 
+      opacity: 0,
+      scale: 0.9,
     },
     visible: {
       y: 0,
       opacity: 1,
+      scale: 1,
       transition: {
-        duration: 1.3,
-        ease: [0.16, 1, 0.3, 1] as const, // Cinematic ultra-smooth easeOutExpo
+        type: "spring" as const,
+        stiffness: 240,
+        damping: 16,
+        mass: 0.8,
       },
     },
   };
@@ -545,9 +549,9 @@ const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => 
   const wordVariants = {
     hidden: { 
       opacity: 0,
-      filter: "blur(12px)",
-      y: 16,
-      scale: 0.94,
+      filter: "blur(8px)",
+      y: 10,
+      scale: 0.96,
     },
     visible: {
       opacity: 1,
@@ -555,7 +559,7 @@ const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => 
       y: 0,
       scale: 1,
       transition: {
-        duration: 0.75,
+        duration: 0.6,
         ease: [0.22, 1, 0.36, 1] as const,
       },
     },
@@ -567,15 +571,15 @@ const BlurInText = ({ text, className = "", delay = 0.25 }: BlurInTextProps) => 
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "0px" }}
-      className={className}
+      className={`relative z-30 ${className}`}
     >
       {lines.map((line, lineIdx) => (
-        <span key={lineIdx} className="block whitespace-normal sm:whitespace-nowrap leading-relaxed py-0.5">
+        <span key={lineIdx} className="block whitespace-normal leading-relaxed py-0.5">
           {line.split(' ').map((word, wordIdx) => (
             <motion.span
               key={`${lineIdx}-${wordIdx}`}
               variants={wordVariants}
-              className="inline-block me-[0.25em] py-0.5"
+              className="inline-block me-[0.25em] py-0.5 text-white drop-shadow-md font-bold"
             >
               {word}
             </motion.span>
@@ -1542,22 +1546,22 @@ export default function App() {
               )}
             </AnimatePresence>
 
-        <div className="flex-grow flex flex-col justify-center items-center relative z-0">
-          <div className="w-full text-center mt-2 xs:mt-4 sm:mt-6 md:-mt-4 lg:-mt-8 px-2">
+        <div className="flex-grow flex flex-col justify-center items-center relative z-10 pt-4 sm:pt-0">
+          <div className="w-full text-center mt-1 xs:mt-3 sm:mt-6 md:-mt-4 lg:-mt-8 px-2">
             <EditableText textKey="hero.welcome" fallbackText="مرحباً، أنا مانع" className="w-full">
               <CinematicTitle key={language} text={t('hero.welcome')} />
             </EditableText>
           </div>
         </div>
 
-        <div className="w-full max-w-7xl mx-auto px-3 xs:px-5 sm:px-10 md:px-14 lg:px-16 flex flex-row justify-between items-end pb-3 sm:pb-6 md:pb-8 z-20 gap-2 sm:gap-4">
+        <div className="w-full max-w-7xl mx-auto px-4 xs:px-6 sm:px-10 md:px-14 lg:px-16 flex flex-row justify-between items-end pb-3 sm:pb-6 md:pb-8 relative z-30 gap-2 sm:gap-4">
           {/* Subtitle Text without box container - crisp, high-end typography */}
-          <div className="max-w-[44%] xs:max-w-[46%] sm:max-w-[480px] md:max-w-[600px] lg:max-w-[700px]">
-            <EditableText textKey="hero.subtitle" fallbackText="مصمم تجارب رقمية وهويات بصرية 3D" multiline className="w-full">
+          <div className="max-w-[72%] xs:max-w-[75%] sm:max-w-[550px] md:max-w-[650px] lg:max-w-[750px] relative z-30">
+            <EditableText textKey="hero.subtitle" fallbackText="أصنع حضوراً بصرياً يترك أثراً." multiline className="w-full">
               <BlurInText 
                 key={language}
                 text={t('hero.subtitle')}
-                className="font-extrabold tracking-tight sm:tracking-normal leading-tight xs:leading-snug sm:leading-relaxed text-[0.85rem] xs:text-[1rem] sm:text-[1.25rem] md:text-[1.5rem] lg:text-[1.75rem] text-start bg-gradient-to-r from-white via-amber-100 to-[#F7941D] bg-clip-text text-transparent"
+                className="font-extrabold tracking-tight sm:tracking-normal leading-tight xs:leading-snug sm:leading-relaxed text-[0.88rem] xs:text-[1.05rem] sm:text-[1.25rem] md:text-[1.5rem] lg:text-[1.75rem] text-start drop-shadow-md"
               />
             </EditableText>
           </div>
@@ -1643,7 +1647,7 @@ export default function App() {
           </FadeIn>
         </div>
 
-        <FadeIn delay={0.6} y={30} className="absolute left-1/2 -translate-x-1/2 bottom-0 z-10 w-[150px] xs:w-[190px] sm:w-[300px] md:w-[380px] lg:w-[460px] xl:w-[510px] 2xl:w-[580px] pointer-events-none sm:pointer-events-auto">
+        <FadeIn delay={0.6} y={30} className="absolute left-1/2 -translate-x-1/2 bottom-10 xs:bottom-14 sm:bottom-0 z-20 w-[220px] xs:w-[260px] sm:w-[310px] md:w-[380px] lg:w-[460px] xl:w-[510px] 2xl:w-[580px] pointer-events-none sm:pointer-events-auto">
           <Magnet>
             <motion.div
               animate={{
@@ -1740,28 +1744,60 @@ export default function App() {
       {/* 3. ABOUT SECTION */}
       <section id="about" ref={aboutRef} className="min-h-screen bg-[#3A2A56] relative flex flex-col items-center justify-center py-20 overflow-hidden">
         
-        {/* Decorative 3D Images with Smooth Parallax & Subtle Rotation */}
-        <FadeIn delay={0.1} x={-80} y={0} duration={0.9} className="absolute top-[4%] right-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+        {/* Decorative 3D Images with Smooth Parallax, Floating Bobbing Loop & Interactive Spring Motion */}
+        <FadeIn delay={0.1} x={-40} y={0} duration={0.9} className="absolute top-[8%] right-[8%] sm:top-[10%] sm:right-[12%] md:top-[12%] md:right-[15%] w-[45px] xs:w-[65px] sm:w-[95px] md:w-[130px] lg:w-[160px] opacity-40 sm:opacity-100 z-20 pointer-events-auto">
           <motion.div style={{ y: yMoon, rotate: rotateMoon }}>
-            <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.webp" alt="Video Editing 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <motion.div
+              animate={{ y: [0, -12, 0], rotate: [0, 3, -3, 0] }}
+              transition={{ duration: 4, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+              whileHover={{ scale: 1.25, rotate: 12, zIndex: 40 }}
+              whileTap={{ scale: 1.05 }}
+              className="cursor-pointer group"
+            >
+              <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.webp" alt="Video Editing 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+            </motion.div>
           </motion.div>
         </FadeIn>
         
-        <FadeIn delay={0.25} x={-80} y={0} duration={0.9} className="absolute bottom-[8%] right-[4%] w-[50px] xs:w-[75px] sm:w-[100px] md:w-[140px] lg:w-[180px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+        <FadeIn delay={0.25} x={-40} y={0} duration={0.9} className="absolute bottom-[10%] right-[8%] sm:bottom-[12%] sm:right-[12%] md:bottom-[14%] md:right-[15%] w-[40px] xs:w-[55px] sm:w-[80px] md:w-[110px] lg:w-[135px] opacity-40 sm:opacity-100 z-20 pointer-events-auto">
           <motion.div style={{ y: yObj2, rotate: rotateObj2 }}>
-            <img src="https://i.ibb.co/F43mtR51/social-ads-v2.webp" alt="Social Ads 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <motion.div
+              animate={{ y: [0, -10, 0], rotate: [0, -4, 4, 0] }}
+              transition={{ duration: 4.5, delay: 0.5, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+              whileHover={{ scale: 1.25, rotate: -14, zIndex: 40 }}
+              whileTap={{ scale: 1.05 }}
+              className="cursor-pointer group"
+            >
+              <img src="https://i.ibb.co/F43mtR51/social-ads-v2.webp" alt="Social Ads 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+            </motion.div>
           </motion.div>
         </FadeIn>
 
-        <FadeIn delay={0.15} x={80} y={0} duration={0.9} className="absolute top-[4%] left-[2%] w-[60px] xs:w-[85px] sm:w-[120px] md:w-[170px] lg:w-[210px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+        <FadeIn delay={0.15} x={40} y={0} duration={0.9} className="absolute top-[8%] left-[8%] sm:top-[10%] sm:left-[12%] md:top-[12%] md:left-[15%] w-[45px] xs:w-[65px] sm:w-[95px] md:w-[130px] lg:w-[160px] opacity-40 sm:opacity-100 z-20 pointer-events-auto">
           <motion.div style={{ y: yLego, rotate: rotateLego }}>
-            <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.webp" alt="Pen Tool 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <motion.div
+              animate={{ y: [0, -14, 0], rotate: [0, -3, 3, 0] }}
+              transition={{ duration: 3.8, delay: 0.2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+              whileHover={{ scale: 1.25, rotate: -12, zIndex: 40 }}
+              whileTap={{ scale: 1.05 }}
+              className="cursor-pointer group"
+            >
+              <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.webp" alt="Pen Tool 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+            </motion.div>
           </motion.div>
         </FadeIn>
 
-        <FadeIn delay={0.3} x={80} y={0} duration={0.9} className="absolute bottom-[8%] left-[4%] w-[65px] xs:w-[90px] sm:w-[130px] md:w-[170px] lg:w-[220px] opacity-20 sm:opacity-100 pointer-events-none z-0">
+        <FadeIn delay={0.3} x={40} y={0} duration={0.9} className="absolute bottom-[10%] left-[8%] sm:bottom-[12%] sm:left-[12%] md:bottom-[14%] md:left-[15%] w-[45px] xs:w-[65px] sm:w-[95px] md:w-[130px] lg:w-[160px] opacity-40 sm:opacity-100 z-20 pointer-events-auto">
           <motion.div style={{ y: yGroup, rotate: rotateGroup }}>
-            <img src="https://i.ibb.co/CsXrWskK/web-design-v2.webp" alt="Web Design 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+            <motion.div
+              animate={{ y: [0, -11, 0], rotate: [0, 4, -4, 0] }}
+              transition={{ duration: 4.2, delay: 0.7, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+              whileHover={{ scale: 1.25, rotate: 14, zIndex: 40 }}
+              whileTap={{ scale: 1.05 }}
+              className="cursor-pointer group"
+            >
+              <img src="https://i.ibb.co/CsXrWskK/web-design-v2.webp" alt="Web Design 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+            </motion.div>
           </motion.div>
         </FadeIn>
 
@@ -1820,6 +1856,7 @@ export default function App() {
             const img1 = galleryList[0] || item.image;
             const img2 = galleryList[1] || item.image || galleryList[0] || item.image;
             const img3 = galleryList[2] || item.image || galleryList[0] || item.image;
+            const img4 = galleryList[3] || galleryList[1] || item.image;
             return (
               <div 
                 key={num} 
@@ -1853,8 +1890,13 @@ export default function App() {
                         {renderMotionMedia(img2, 0.2)}
                       </div>
                     </div>
-                    <div className="w-full md:w-[60%] h-[220px] xs:h-[260px] sm:h-[340px] md:h-full flex-grow md:flex-none overflow-hidden rounded-[24px] sm:rounded-[40px] bg-[#2A1E40] relative">
-                      {renderMotionMedia(img3, 0.3)}
+                    <div className="w-full md:w-[60%] flex flex-col sm:flex-row md:flex-col gap-4 h-full min-h-0">
+                      <div className="overflow-hidden rounded-[24px] sm:rounded-[40px] h-[180px] xs:h-[210px] sm:h-[240px] md:h-[clamp(150px,18vw,260px)] bg-[#2A1E40] w-full relative shrink-0">
+                        {renderMotionMedia(img3, 0.3)}
+                      </div>
+                      <div className="overflow-hidden rounded-[24px] sm:rounded-[40px] h-[180px] xs:h-[210px] sm:h-[240px] md:h-auto flex-grow bg-[#2A1E40] w-full relative">
+                        {renderMotionMedia(img4, 0.4)}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -1896,15 +1938,16 @@ export default function App() {
                 initial="initial"
                 whileInView="animate"
                 whileHover="hover"
-                viewport={{ once: true, margin: "-100px" }}
+                viewport={{ once: true, margin: "-50px" }}
                 variants={{
-                  initial: { opacity: 0, y: 40 },
+                  initial: { opacity: 0, y: 35, scale: 0.82 },
                   animate: { 
                     opacity: 1, 
                     y: 0,
+                    scale: 1,
                     transition: {
                       duration: 0.7, 
-                      delay: (idx % partnerLogos.length) * 0.06,
+                      delay: (idx % partnerLogos.length) * 0.08,
                       ease: [0.215, 0.61, 0.355, 1.0] 
                     }
                   },
@@ -1917,7 +1960,7 @@ export default function App() {
                     }
                   }
                 }}
-                className="partner-card group bg-white rounded-3xl shadow-sm hover:shadow-[0_15px_30px_rgba(247,148,29,0.15)] border border-gray-100 hover:border-[#F7941D] p-4 sm:p-6 flex items-center justify-center w-36 sm:w-52 aspect-[16/9] h-auto shrink-0 transition-all duration-300 select-none cursor-pointer backdrop-blur-md"
+                className="partner-card group bg-white border border-gray-100 hover:border-[#F7941D] p-4 sm:p-6 flex items-center justify-center w-36 sm:w-52 aspect-[16/9] h-auto shrink-0 transition-all duration-400 select-none cursor-pointer backdrop-blur-md"
                 onMouseMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
