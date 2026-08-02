@@ -235,5 +235,77 @@ export const portfolioItems: PortfolioItem[] = [
       "https://motionsites.ai/assets/hero-aethera-preview-DknSlcTa.gif"
     ],
     videoUrl: ""
+  },
+  {
+    id: "vortex-branding",
+    title: "الهوية البصرية المتكاملة لشركة فورتاكس",
+    titleEn: "Vortex Digital Solutions Visual Identity",
+    category: "هويات بصرية",
+    categoryEn: "Brand Identity",
+    categoryKey: "branding",
+    image: "https://i.ibb.co/60ZF2S86/3.jpg",
+    description: "تطوير هوية بصرية ودليل إرشادي شامل لشركة فورتاكس للحلول الرقمية، يدمج بين الألوان المستقبلية عالية التباين والخطوط الشبكية المتقنة لتعزيز التواجد المؤسسي.",
+    descriptionEn: "Development of a full visual identity and brand guidelines for Vortex Digital Solutions, combining high-contrast futuristic colors with precise typography grid systems.",
+    client: "شركة فورتاكس للحلول الرقمية",
+    clientEn: "Vortex Digital Solutions",
+    year: "2026",
+    tools: [
+      "Adobe Illustrator",
+      "Adobe Photoshop",
+      "Figma",
+      "Brand Guidelines"
+    ],
+    gallery: [
+      "https://i.ibb.co/bMMXYxMn/8.jpg",
+      "https://i.ibb.co/xKbXgW9R/10.jpg"
+    ],
+    videoUrl: ""
+  },
+  {
+    id: "luxury-interior-ui",
+    title: "منصة واستوديو التصميم الداخلي المعماري",
+    titleEn: "Architectural & Interior Design Platform UI/UX",
+    category: "تصميم ويب وواجهات",
+    categoryEn: "Web & UI Design",
+    categoryKey: "web",
+    image: "https://motionsites.ai/assets/hero-space-voyage-preview-eECLH3Yc.gif",
+    description: "واجهة رقمية فاخرة وسلسة لاستعراض واستكشاف التصاميم المعمارية والديكورات الداخلية ثلاثية الأبعاد بأسلوب بصري تفاعلي ومثير للاهتمام.",
+    descriptionEn: "A luxury, fluid UI/UX platform for exploring architectural and 3D interior design showcases with interactive smooth transitions.",
+    client: "استوديو الأفق المعماري",
+    clientEn: "Horizon Architectural Studio",
+    year: "2026",
+    tools: [
+      "Figma",
+      "React",
+      "Tailwind CSS",
+      "Motion"
+    ],
+    gallery: [
+      "https://motionsites.ai/assets/hero-codenest-preview-Cgppc2qV.gif"
+    ],
+    videoUrl: ""
+  },
+  {
+    id: "almadar-motion-promo",
+    title: "فيديو ترويجي حركي لمجموعة المدار",
+    titleEn: "Al-Madar Group Kinetic Motion Commercial",
+    category: "موشن جرافيكس",
+    categoryEn: "Motion Graphics",
+    categoryKey: "motion",
+    image: "https://motionsites.ai/assets/hero-asme-preview-B_nGDnTP.gif",
+    description: "إعلان موشن جرافيكس احترافي يتضمن تحريك العناصر ثلاثية الأبعاد وإخراج سينمائي ذكي يستعرض إنجازات وتطلعات المجموعة بأسلوب بصري مبهر.",
+    descriptionEn: "A professional motion graphics commercial featuring 3D element animations and cinematic editing showcasing company achievements.",
+    client: "مجموعة المدار الاستثمارية",
+    clientEn: "Al-Madar Investment Group",
+    year: "2025",
+    tools: [
+      "Adobe After Effects",
+      "Cinema 4D",
+      "DaVinci Resolve"
+    ],
+    gallery: [
+      "https://motionsites.ai/assets/hero-skyelite-preview-DHaZIgUv.gif"
+    ],
+    videoUrl: ""
   }
 ];

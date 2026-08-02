@@ -53,7 +53,7 @@ interface CardTheme {
 const cardThemes: CardTheme[] = [
   {
     // Card 01: Royal Violet
-    bgColor: "#200B3B",
+    bgColor: "#1D1031",
     glowColor: "rgba(139, 92, 246, 0.45)",
     cardBg: "from-[#2B154B]/95 via-[#1E0D3A]/98 to-[#15072B]/98",
     activeCardBg: "from-[#3A1C63]/98 via-[#28114A]/98 to-[#1C0A38]/98",
@@ -63,7 +63,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 02: Midnight Amethyst
-    bgColor: "#17062C",
+    bgColor: "#1D1031",
     glowColor: "rgba(168, 85, 247, 0.45)",
     cardBg: "from-[#230C3F]/95 via-[#18072D]/98 to-[#100320]/98",
     activeCardBg: "from-[#311257]/98 via-[#220B3F]/98 to-[#17052C]/98",
@@ -73,7 +73,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 03: Magenta Plum
-    bgColor: "#290A3B",
+    bgColor: "#1D1031",
     glowColor: "rgba(192, 132, 252, 0.45)",
     cardBg: "from-[#33114B]/95 via-[#230936]/98 to-[#170527]/98",
     activeCardBg: "from-[#451765]/98 via-[#2E0C47]/98 to-[#1E0732]/98",
@@ -83,7 +83,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 04: Dark Amethyst
-    bgColor: "#1D082E",
+    bgColor: "#1D1031",
     glowColor: "rgba(147, 51, 234, 0.45)",
     cardBg: "from-[#260C3B]/95 via-[#190729]/98 to-[#11031F]/98",
     activeCardBg: "from-[#371154]/98 via-[#240A3C]/98 to-[#18042B]/98",
@@ -93,7 +93,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 05: Midnight Indigo Purple
-    bgColor: "#140728",
+    bgColor: "#1D1031",
     glowColor: "rgba(126, 34, 206, 0.45)",
     cardBg: "from-[#1C0C34]/95 via-[#120624]/98 to-[#0D031A]/98",
     activeCardBg: "from-[#2A124B]/98 via-[#1C0936]/98 to-[#130426]/98",
@@ -103,7 +103,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 06: Electric Radiant Purple
-    bgColor: "#2B0B42",
+    bgColor: "#1D1031",
     glowColor: "rgba(163, 89, 255, 0.5)",
     cardBg: "from-[#36114F]/95 via-[#25093A]/98 to-[#1A052A]/98",
     activeCardBg: "from-[#4A186B]/98 via-[#310C4E]/98 to-[#220638]/98",
@@ -113,7 +113,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 07: Velvet Dark Violet
-    bgColor: "#1A072B",
+    bgColor: "#1D1031",
     glowColor: "rgba(139, 92, 246, 0.45)",
     cardBg: "from-[#230A34]/95 via-[#170624]/98 to-[#10031A]/98",
     activeCardBg: "from-[#320F4B]/98 via-[#210935]/98 to-[#160426]/98",
@@ -123,7 +123,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 08: Cosmic Orchid Night
-    bgColor: "#220836",
+    bgColor: "#1D1031",
     glowColor: "rgba(216, 180, 254, 0.45)",
     cardBg: "from-[#2B0C42]/95 via-[#1C072E]/98 to-[#140421]/98",
     activeCardBg: "from-[#3D115C]/98 via-[#27093D]/98 to-[#1B042C]/98",
@@ -133,7 +133,7 @@ const cardThemes: CardTheme[] = [
   },
   {
     // Card 09: Imperial Purple & Gold
-    bgColor: "#2C0D3A",
+    bgColor: "#1D1031",
     glowColor: "rgba(247, 148, 29, 0.5)",
     cardBg: "from-[#37114A]/95 via-[#250835]/98 to-[#1A0525]/98",
     activeCardBg: "from-[#4B1763]/98 via-[#320B4B]/98 to-[#230635]/98",
@@ -213,8 +213,8 @@ const ServiceStickyCard = ({ scrollYProgress, index, total, service, effectiveIn
         filter,
         zIndex: total - index,
         boxShadow: isCardActive
-          ? `0 28px 70px rgba(0,0,0,0.85), 0 0 60px ${cardTheme.glowColor}`
-          : `0 20px 50px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3)`
+          ? `0 25px 50px rgba(0,0,0,0.7)`
+          : `0 15px 35px rgba(0,0,0,0.4)`
       }}
       className={`absolute group w-full max-w-[88vw] sm:max-w-[340px] md:max-w-[380px] lg:max-w-[400px] xl:max-w-[420px] min-h-[300px] sm:min-h-[340px] md:min-h-[360px] rounded-[28px] sm:rounded-[32px] p-5 sm:p-6 md:p-7 flex flex-col justify-between ${dir === 'rtl' ? 'text-right' : 'text-left'} select-none transition-all duration-300 ease-out backdrop-blur-2xl bg-gradient-to-br ${
         isCardActive ? cardTheme.activeCardBg : cardTheme.cardBg
@@ -226,14 +226,6 @@ const ServiceStickyCard = ({ scrollYProgress, index, total, service, effectiveIn
           : ""
       }`}
     >
-      {/* Dynamic Ambient Background Glow on Active */}
-      <div 
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[32px] pointer-events-none" 
-        style={{
-          background: `radial-gradient(circle at 50% 120%, ${cardTheme.glowColor}, transparent 70%)`
-        }}
-      />
-
       {/* Card Content Spring & Hover Physics */}
       <motion.div 
         className="w-full h-full flex flex-col justify-between flex-grow relative z-10"
@@ -300,7 +292,7 @@ const ServiceStickyCard = ({ scrollYProgress, index, total, service, effectiveIn
                   }
                 }
               }}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#A359FF] hover:from-[#A359FF] hover:to-[#F7941D] text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(247,148,29,0.25)] hover:shadow-[0_4px_25px_rgba(163,89,255,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer select-none"
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#A359FF] hover:from-[#A359FF] hover:to-[#F7941D] text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer select-none"
             >
               <span>{t('services.browseProjects')}</span>
               <motion.span
@@ -394,10 +386,10 @@ export default function ServicesPinnedSection() {
         backgroundImage: `radial-gradient(circle at 50% 30%, ${currentTheme.accentColor}30, transparent 70%), radial-gradient(circle at 20% 80%, ${currentTheme.glowColor}, transparent 65%)`,
         transition: 'background-color 0.8s cubic-bezier(0.16, 1, 0.3, 1), background-image 0.8s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
-      className={`relative min-h-[450vh] sm:min-h-[550vh] md:min-h-[750vh] lg:min-h-[850vh] rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
+      className={`relative min-h-[450vh] sm:min-h-[550vh] md:min-h-[750vh] lg:min-h-[850vh] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
     >
       {/* Bottom transition gradient to Projects section for flawless color merging */}
-      <div className="absolute bottom-0 left-0 w-full h-[40vh] bg-gradient-to-t from-[#2A1E40] via-[#2D1B4D]/60 to-transparent pointer-events-none z-10" />
+      <div className="absolute bottom-0 left-0 w-full h-[40vh] bg-gradient-to-t from-[#1D1031] via-[#1D1031]/60 to-transparent pointer-events-none z-10" />
 
       {/* Sticky viewport frame with premium spring lift/entrance animation */}
       <motion.div 
@@ -412,17 +404,6 @@ export default function ServicesPinnedSection() {
         }}
         className="sticky top-0 h-screen w-full flex flex-col justify-between overflow-hidden py-4 sm:py-6 md:py-8 px-4 sm:px-8 md:px-12 lg:px-16 z-20"
       >
-        
-        {/* Dynamic Ambient background purple blurs matching active card theme */}
-        <div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] rounded-full blur-[160px] pointer-events-none transition-all duration-1000 ease-out opacity-30"
-          style={{ backgroundColor: currentTheme.accentColor }}
-        />
-        <div 
-          className="absolute top-1/3 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] rounded-full blur-[140px] pointer-events-none transition-all duration-1000 ease-out opacity-35"
-          style={{ backgroundColor: currentTheme.bgColor }}
-        />
-
         {/* Animated Section Header (Centered vertically in viewport on section entry) */}
         <motion.div 
           style={{

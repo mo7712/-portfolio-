@@ -37,6 +37,12 @@ interface LanguageContextType {
     customTranslations?: Record<Language, Record<string, string>>;
     partnerLogos?: string[];
   }) => void;
+
+  // Database Maintenance, CI/CD Deployment & Cache Management
+  purgeGlobalCache: () => void;
+  runDatabaseMaintenance: () => Promise<any>;
+  triggerSafeDeployment: (data?: any) => Promise<any>;
+  lastDeployTime: string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -52,6 +58,9 @@ const getEnglishTitle = (id: string): string => {
     'codenest-reveal': 'CodeNest Motion Graphics Promo Video',
     'stellar-ai-ui': 'AI Dashboard UI Design',
     'orbit-3d-loop': '3D Orbital Motion Loop',
+    'vortex-branding': 'Vortex Digital Solutions Visual Identity',
+    'luxury-interior-ui': 'Architectural & Interior Design Platform UI/UX',
+    'almadar-motion-promo': 'Al-Madar Group Kinetic Motion Commercial',
   };
   return titles[id] || id;
 };
@@ -77,6 +86,9 @@ const getEnglishDescription = (id: string): string => {
     'codenest-reveal': 'Engaging kinetic animation to reveal the logo and identity of the CodeNest platform, utilizing morphing shapes and mock sound effects for a lively experience.',
     'stellar-ai-ui': 'Design of a polished, futuristic dark UI for an AI data management dashboard, featuring dynamic graphs and semi-transparent glassmorphism effects.',
     'orbit-3d-loop': 'A continuous seamless 3D orbital motion loop featuring color harmony and engaging paths, ideal as an interactive background element for luxury websites and metaverse apps.',
+    'vortex-branding': 'Development of a full visual identity and brand guidelines for Vortex Digital Solutions, combining high-contrast futuristic colors with precise typography grid systems.',
+    'luxury-interior-ui': 'A luxury, fluid UI/UX platform for exploring architectural and 3D interior design showcases with interactive smooth transitions.',
+    'almadar-motion-promo': 'A professional motion graphics commercial featuring 3D element animations and cinematic editing showcasing company achievements.',
   };
   return descs[id] || '';
 };
@@ -91,6 +103,9 @@ const getEnglishClient = (id: string): string => {
     'codenest-reveal': 'CodeNest Platform',
     'stellar-ai-ui': 'Stellar AI',
     'orbit-3d-loop': 'Personal',
+    'vortex-branding': 'Vortex Digital Solutions',
+    'luxury-interior-ui': 'Horizon Architectural Studio',
+    'almadar-motion-promo': 'Al-Madar Investment Group',
   };
   return clients[id] || 'Client';
 };
@@ -422,39 +437,66 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const dir: Dir = language === 'ar' ? 'rtl' : 'ltr';
 
-  // 1. Initial Data Fetching from Backend Database Files
+  const [lastDeployTime, setLastDeployTime] = useState<string>(() => localStorage.getItem('manea_deploy_time') || new Date().toISOString());
+
+  // Helper to fetch latest public data from backend
+  const fetchLatestPublicData = async () => {
+    try {
+      const res = await fetch(`/api/public/data?t=${Date.now()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) {
+        if (data.portfolioItems) {
+          setRawPortfolioItemsState(data.portfolioItems);
+          safeSetItem('manea_portfolio_items', JSON.stringify(data.portfolioItems));
+        }
+        if (data.categories) {
+          setRawCategoriesState(data.categories);
+          safeSetItem('manea_categories', JSON.stringify(data.categories));
+        }
+        if (data.customTranslations) {
+          setCustomTranslationsState(data.customTranslations);
+          safeSetItem('manea_custom_translations', JSON.stringify(data.customTranslations));
+        }
+        if (data.partnerLogos) {
+          setRawPartnerLogosState(data.partnerLogos);
+          safeSetItem('manea_partner_logos', JSON.stringify(data.partnerLogos));
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching latest public data", e);
+    }
+  };
+
+  // 1. Initial Data Fetching from Backend Database Files & CI/CD Real-time Sync
   useEffect(() => {
-    fetch('/api/public/data')
-      .then(async (res) => {
-        const contentType = res.headers.get("content-type");
-        if (!res.ok || !contentType || !contentType.includes("application/json")) {
-          throw new Error(`Server returned non-JSON response (${res.status})`);
+    fetchLatestPublicData();
+
+    // BroadcastChannel Listener for instant multi-tab & user synchronization
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      broadcastChannel = new BroadcastChannel('manea_deployment_channel');
+      broadcastChannel.onmessage = (event) => {
+        if (event.data && (event.data.type === 'DEPLOY_SYNC' || event.data.type === 'DB_REPAIRED')) {
+          console.log('[CI/CD REALTIME SYNC] Event received! Refreshing client data cache...');
+          fetchLatestPublicData();
         }
-        return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          if (data.portfolioItems) {
-            setRawPortfolioItemsState(data.portfolioItems);
-            safeSetItem('manea_portfolio_items', JSON.stringify(data.portfolioItems));
-          }
-          if (data.categories) {
-            setRawCategoriesState(data.categories);
-            safeSetItem('manea_categories', JSON.stringify(data.categories));
-          }
-          if (data.customTranslations) {
-            setCustomTranslationsState(data.customTranslations);
-            safeSetItem('manea_custom_translations', JSON.stringify(data.customTranslations));
-          }
-          if (data.partnerLogos) {
-            setRawPartnerLogosState(data.partnerLogos);
-            safeSetItem('manea_partner_logos', JSON.stringify(data.partnerLogos));
-          }
-        }
-      })
-      .catch(err => {
-        console.warn("Could not load backend data. Falling back to local storage and offline defaults.", err);
-      });
+      };
+    } catch (e) {
+      console.warn("BroadcastChannel not supported in environment.");
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'manea_deploy_time' || e.key === 'manea_portfolio_items') {
+        fetchLatestPublicData();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      if (broadcastChannel) broadcastChannel.close();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -693,6 +735,66 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     label: language === 'ar' ? c.labelAr : c.labelEn
   }));
 
+  const purgeGlobalCache = () => {
+    try {
+      localStorage.removeItem('manea_admin_proj_form_draft');
+      localStorage.removeItem('manea_admin_cat_form_draft');
+      const nowStr = new Date().toISOString();
+      localStorage.setItem('manea_deploy_time', nowStr);
+      setLastDeployTime(nowStr);
+      fetchLatestPublicData();
+      try {
+        const bc = new BroadcastChannel('manea_deployment_channel');
+        bc.postMessage({ type: 'DEPLOY_SYNC', timestamp: Date.now() });
+        bc.close();
+      } catch (e) {}
+    } catch (e) {
+      console.error("Failed to purge global cache", e);
+    }
+  };
+
+  const runDatabaseMaintenance = async () => {
+    const token = sessionStorage.getItem('manea_admin_auth_token') || 'fallback-admin-token-2026';
+    const res = await fetch('/api/admin/database-maintenance', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (data.success && data.data) {
+      if (data.data.portfolioItems) setRawPortfolioItemsState(data.data.portfolioItems);
+      if (data.data.categories) setRawCategoriesState(data.data.categories);
+      if (data.data.partnerLogos) setRawPartnerLogosState(data.data.partnerLogos);
+      purgeGlobalCache();
+    }
+    return data;
+  };
+
+  const triggerSafeDeployment = async (overrideData?: any) => {
+    const token = sessionStorage.getItem('manea_admin_auth_token') || 'fallback-admin-token-2026';
+    const payload = overrideData || {
+      portfolioItems: rawPortfolioItems,
+      categories: rawCategories,
+      customTranslations,
+      partnerLogos: rawPartnerLogos
+    };
+    const res = await fetch('/api/admin/deploy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      purgeGlobalCache();
+    }
+    return data;
+  };
+
   return (
     <LanguageContext.Provider value={{ 
       language, 
@@ -714,7 +816,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setRawPartnerLogos,
       canUndo: undoStack.length > 0,
       undoLastSave,
-      saveAdminData
+      saveAdminData,
+      purgeGlobalCache,
+      runDatabaseMaintenance,
+      triggerSafeDeployment,
+      lastDeployTime
     }}>
       {children}
     </LanguageContext.Provider>

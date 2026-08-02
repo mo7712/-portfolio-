@@ -46,6 +46,26 @@ export const getWebPUrlHelper = (url: string): string | null => {
   return null;
 };
 
+export const getLowResUrlHelper = (url: string): string | null => {
+  if (!url || typeof url !== 'string' || isVideoUrlHelper(url)) return null;
+  const lowercase = url.toLowerCase().trim();
+  if (lowercase.startsWith('data:')) return url;
+
+  // Unsplash ultra low-res thumbnail for blur-up
+  if (lowercase.includes('images.unsplash.com')) {
+    const cleanUrl = url.replace(/([?&])w=\d+/gi, '').replace(/([?&])fm=[^&]+/gi, '').replace(/([?&])q=\d+/gi, '').replace(/([?&])auto=[^&]+/gi, '');
+    const sep = cleanUrl.includes('?') ? '&' : '?';
+    return `${cleanUrl}${sep}w=30&q=20&fm=webp`;
+  }
+
+  // Cloudinary ultra low-res thumbnail for blur-up
+  if (lowercase.includes('res.cloudinary.com') && lowercase.includes('/upload/')) {
+    return url.replace('/upload/', '/upload/w_40,q_10,f_webp/');
+  }
+
+  return url;
+};
+
 export const getSrcSetHelper = (url: string, format?: 'webp' | 'original'): string | undefined => {
   if (!url || typeof url !== 'string' || isVideoUrlHelper(url)) return undefined;
   const lowercase = url.toLowerCase().trim();
@@ -113,6 +133,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const webpCandidate = getWebPUrlHelper(src);
+  const lowResCandidate = getLowResUrlHelper(src) || src;
   const isGif = src && (src.toLowerCase().includes('.gif') || src.toLowerCase().includes('ezgif') || src.toLowerCase().includes('gif'));
 
   const computedSrcSet = srcSet || getSrcSetHelper(src);
@@ -209,6 +230,20 @@ export const LazyImage: React.FC<LazyImageProps> = ({
 
       {isInView && (
         <>
+          {/* Blur-Up Low-Resolution Micro-Thumbnail */}
+          <img
+            src={lowResCandidate}
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+            decoding="async"
+            referrerPolicy={referrerPolicy}
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out transform scale-110 pointer-events-none select-none z-0 ${
+              isLoaded ? 'opacity-0 scale-100' : 'opacity-100'
+            }`}
+            style={{ filter: 'blur(20px)' }}
+          />
+
           <picture className="contents">
             {computedWebpSrcSet && !useFallback && (
               <source type="image/webp" srcSet={computedWebpSrcSet} sizes={computedSizes} />
@@ -230,8 +265,10 @@ export const LazyImage: React.FC<LazyImageProps> = ({
                   setIsLoaded(true);
                 }
               }}
-              className={`${className} transition-opacity duration-500 ${
-                isLoaded ? (isFrozen ? 'hidden' : 'opacity-100') : 'opacity-0'
+              className={`${className} transition-all duration-700 ease-out z-1 relative ${
+                isLoaded 
+                  ? (isFrozen ? 'hidden' : 'opacity-100 blur-0 scale-100') 
+                  : 'opacity-0 blur-md scale-105'
               }`}
               style={style}
               {...props}
@@ -240,7 +277,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
           <canvas
             ref={canvasRef}
             aria-hidden="true"
-            className={`${className} ${isFrozen ? 'block' : 'hidden'}`}
+            className={`${className} ${isFrozen ? 'block' : 'hidden'} z-1 relative`}
             style={style}
           />
         </>

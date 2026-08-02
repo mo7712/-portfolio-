@@ -6,6 +6,7 @@ import {
   RefreshCw, LayoutDashboard, Zap, FileText, Upload, Copy, Lock, RotateCcw
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { LazyMedia } from './LazyMedia';
 
 // WebP image conversion utility
 export const convertToWebP = (
@@ -1003,7 +1004,7 @@ export const EditableImage: React.FC<EditableImageProps> = ({
   };
 
   if (!isVisualEditorActive) {
-    return <img src={src} alt={alt} className={className} referrerPolicy="no-referrer" />;
+    return <LazyMedia src={src} alt={alt} className={className} referrerPolicy="no-referrer" />;
   }
 
   const imageModalContent = (

@@ -141,20 +141,8 @@ export default function ManeaLoader({ onComplete }: ManeaLoaderProps) {
         filter: "blur(10px)"
       }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed inset-0 z-[9999] bg-[#3A2A56] flex flex-col items-center justify-center select-none overflow-hidden"
+      className="fixed inset-0 h-[100dvh] w-full min-h-[100dvh] z-[9999] bg-[#3A2A56] flex flex-col items-center justify-center select-none overflow-hidden"
     >
-      {/* Background Ambient Cosmic Glows */}
-      <motion.div 
-        animate={isPortalTriggered ? { opacity: 0 } : { opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="absolute top-1/4 left-1/4 w-[35vw] h-[35vw] bg-[#F7941D]/10 rounded-full blur-[100px] pointer-events-none" 
-      />
-      <motion.div 
-        animate={isPortalTriggered ? { opacity: 0 } : { opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="absolute bottom-1/4 right-1/4 w-[35vw] h-[35vw] bg-[#A78BFA]/10 rounded-full blur-[100px] pointer-events-none" 
-      />
-
       <div className="w-full max-w-xl px-6 sm:px-8 flex flex-col items-center gap-2 relative z-10">
         
         {/* Centered Logo Container */}

@@ -78,14 +78,26 @@ html.lenis, html.lenis body {
 
 .animate-wave-slow {
   animation: wave-slow 28s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-wave-medium {
   animation: wave-medium 20s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-wave-fast {
   animation: wave-fast 14s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-blob-drift {
@@ -114,36 +126,15 @@ html.lenis, html.lenis body {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  --mouse-x: 50%;
-  --mouse-y: 50%;
-  --glow-opacity: 0;
-  border-radius: 1.5rem;
-  transition: border-radius 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.partner-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    200px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(247, 148, 29, 0.32) 0%,
-    rgba(163, 89, 255, 0.14) 45%,
-    transparent 80%
-  );
-  opacity: var(--glow-opacity, 0);
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-  z-index: 1;
+  border-radius: 1.25rem;
+  transition: border-radius 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s ease, transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .partner-card:hover,
 .partner-card.is-touched,
 .partner-card:active {
-  --glow-opacity: 1;
-  border-radius: 2.25rem;
-  box-shadow: 0 25px 45px -12px rgba(247, 148, 29, 0.28), 0 14px 28px -8px rgba(31, 12, 59, 0.35);
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
 }
 
 .partner-card > * {
@@ -157,13 +148,13 @@ html.lenis, html.lenis body {
     width: clamp(8.5rem, 36vw, 10rem);
     height: auto;
     padding: 0.625rem 0.875rem;
-    border-radius: 1.25rem;
+    border-radius: 1rem;
   }
   
   .partner-card:hover,
   .partner-card.is-touched,
   .partner-card:active {
-    border-radius: 1.75rem;
+    border-radius: 1.25rem;
   }
 }
 

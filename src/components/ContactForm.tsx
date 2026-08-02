@@ -647,7 +647,7 @@ export default function ContactForm() {
                     type="submit"
                     disabled={isSubmitting}
                     whileTap={{ scale: 0.99 }}
-                    className="w-full py-3 bg-[#F7941D] hover:bg-[#ffaa3a] text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#F7941D]/10 hover:shadow-[#F7941D]/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-sans"
+                    className="w-full py-3 bg-[#F7941D] hover:bg-[#ffaa3a] text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-sans"
                   >
                     {isSubmitting ? (
                       <>
@@ -691,7 +691,7 @@ export default function ContactForm() {
                     onClick={() => setIsSubmitted(false)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="px-5 py-2 bg-[#F7941D] hover:bg-[#ffaa3a] rounded-xl text-white text-[11px] font-bold transition-all duration-300 cursor-pointer shadow-md shadow-[#F7941D]/10"
+                    className="px-5 py-2 bg-[#F7941D] hover:bg-[#ffaa3a] rounded-xl text-white text-[11px] font-bold transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
                   >
                     {language === 'ar' ? 'إرسال تفاصيل أخرى' : 'Send Another Request'}
                   </motion.button>

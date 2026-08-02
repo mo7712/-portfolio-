@@ -118,7 +118,7 @@ export const NotFound: React.FC<NotFoundProps> = ({
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={onGoHome}
-            className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-[0_10px_25px_rgba(247,148,29,0.35)] hover:shadow-[0_15px_35px_rgba(247,148,29,0.5)] transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
           >
             <Home className="w-4 h-4" />
             <span>{isAr ? 'الرجوع للرئيسية' : 'Back to Home'}</span>

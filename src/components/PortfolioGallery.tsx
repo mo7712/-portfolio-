@@ -106,17 +106,8 @@ const TiltPortfolioCard: React.FC<TiltPortfolioCardProps> = ({
           rotateY,
           transformStyle: 'preserve-3d',
         }}
-        className="group relative bg-[#1D1031]/90 border-2 border-[#F7941D]/20 hover:border-[#F7941D] rounded-3xl overflow-hidden cursor-pointer flex flex-col h-full shadow-md hover:shadow-2xl hover:shadow-[#F7941D]/20 transition-colors duration-300"
+        className="group relative bg-[#1D1031]/90 border-2 border-[#F7941D]/20 hover:border-[#F7941D] rounded-3xl overflow-hidden cursor-pointer flex flex-col h-full shadow-md hover:shadow-xl transition-all duration-300"
       >
-        {/* Dynamic Glare Reflection Overlay */}
-        <motion.div
-          style={{
-            background: `radial-gradient(circle at ${glareX} ${glareY}, rgba(255, 255, 255, 0.35) 0%, transparent 70%)`,
-            opacity: glareOpacity,
-          }}
-          className="absolute inset-0 z-30 pointer-events-none rounded-3xl"
-        />
-
         {/* Image wrapper with relative aspect ratio & parallax */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#1A122E] z-10">
           <motion.div
@@ -227,7 +218,7 @@ const TiltPortfolioCard: React.FC<TiltPortfolioCardProps> = ({
                     }}
                     className={`text-[11px] font-medium font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
                       isTechActive
-                        ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-sm shadow-[#F7941D]/30'
+                        ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-sm'
                         : 'bg-white/5 text-gray-200 border-white/10 hover:border-[#F7941D]/60 hover:text-[#F7941D] hover:bg-[#F7941D]/10'
                     }`}
                     title={`${t('portfolioGallery.filterByTech')}: ${tool}`}
@@ -422,7 +413,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
     setCurrentImageIndex((prev) => (prev - 1 + projectGallery.length) % projectGallery.length);
   };
 
-  const renderMedia = (url: string, alt: string = '', sizes: string = '(max-width: 1024px) 100vw, 55vw') => {
+  const renderMedia = (url: string, alt: string = '', sizes: string = '(max-width: 1024px) 100vw, 55vw', fitClass: string = 'object-cover') => {
     if (!url) return null;
     if (isVideoUrl(url)) {
       const lowercaseUrl = url.toLowerCase();
@@ -464,7 +455,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
         src={url} 
         alt={alt} 
         sizes={sizes}
-        className="w-full h-full object-cover"
+        className={`w-full h-full ${fitClass}`}
       />
     );
   };
@@ -476,7 +467,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       dir={dir} 
-      className={`min-h-screen bg-[#2A1E40] text-white pt-24 pb-20 px-4 sm:px-6 md:px-10 font-sans ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
+      className={`min-h-screen bg-[#1D1031] text-white pt-24 pb-20 px-4 sm:px-6 md:px-10 font-sans ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
     >
       <div className="max-w-7xl mx-auto">
         
@@ -500,7 +491,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
 
         {/* Featured Auto-Play Projects Slider */}
         <div 
-          className="mb-16 relative bg-[#3A2A56]/40 rounded-[32px] border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl overflow-hidden group/slider"
+          className="mb-16 relative bg-[#1A122E]/80 rounded-[32px] border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl overflow-hidden group/slider"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
@@ -579,7 +570,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                   <div className={`pt-4 flex ${dir === 'rtl' ? 'justify-start' : 'justify-start'} gap-4`}>
                     <button
                       onClick={() => handleOpenProject(translatedPortfolioItems[autoplayIndex])}
-                      className="px-6 py-3 bg-[#F7941D] hover:bg-[#E06C00] text-white text-sm font-bold rounded-xl shadow-lg shadow-[#F7941D]/10 hover:shadow-[#F7941D]/20 hover:scale-[1.02] transition-all duration-300 cursor-pointer flex items-center gap-2"
+                      className="px-6 py-3 bg-[#F7941D] hover:bg-[#E06C00] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer flex items-center gap-2"
                     >
                       <span>{t('portfolioGallery.viewFullDetails')}</span>
                       <ArrowRight size={16} className={dir === 'rtl' ? 'rotate-180' : ''} />
@@ -711,7 +702,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
         </div>
 
         {/* Technology Filter Bar */}
-        <div className="bg-[#3A2A56]/30 border border-white/10 rounded-2xl p-4 sm:p-5 mb-12 shadow-lg backdrop-blur-sm">
+        <div className="bg-[#1A122E]/80 border border-white/10 rounded-2xl p-4 sm:p-5 mb-12 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3 mb-3 pb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
               <Cpu size={18} className="text-[#F7941D]" />
@@ -736,7 +727,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
               onClick={() => setSelectedTechnology('all')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                 selectedTechnology === 'all'
-                  ? 'bg-[#F7941D] text-white border-[#F7941D] shadow-md shadow-[#F7941D]/20'
+                  ? 'bg-[#F7941D] text-white border-[#F7941D] shadow-sm'
                   : 'bg-white/5 text-gray-300 border-white/10 hover:border-[#F7941D]/50 hover:bg-white/10'
               }`}
             >
@@ -753,7 +744,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                   onClick={() => setSelectedTechnology(isSelected ? 'all' : tech.name)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium font-mono transition-all cursor-pointer flex items-center gap-1.5 border ${
                     isSelected
-                      ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-md shadow-[#F7941D]/20'
+                      ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-sm'
                       : 'bg-[#1A122E]/80 text-gray-300 border-white/10 hover:border-[#F7941D]/50 hover:text-[#F7941D] hover:bg-white/10'
                   }`}
                   title={`${t('portfolioGallery.filterByTech')}: ${tech.name}`}
@@ -821,7 +812,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-24 bg-[#3A2A56]/20 rounded-3xl border border-dashed border-white/10"
+            className="text-center py-24 bg-[#1A122E]/60 rounded-3xl border border-dashed border-white/10"
           >
             <Cpu size={40} className="mx-auto mb-3 text-[#F7941D]/60 animate-bounce" />
             <p className="text-gray-300 text-lg mb-2">{t('portfolioGallery.noResults')}</p>
@@ -840,7 +831,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
         )}
 
         {/* Bottom Call to Action */}
-        <div className="mt-20 text-center bg-[#3A2A56]/40 border border-white/5 p-8 sm:p-12 rounded-[32px] max-w-4xl mx-auto">
+        <div className="mt-20 text-center bg-[#1A122E]/80 border border-white/5 p-8 sm:p-12 rounded-[32px] max-w-4xl mx-auto">
           <h3 className="text-xl sm:text-2xl font-bold mb-3">{t('portfolioGallery.thinkToBuild')}</h3>
           <p className="text-gray-300 text-sm sm:text-base font-light mb-8 max-w-lg mx-auto">
             {language === 'ar' 
@@ -877,7 +868,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelectedProject(null)}
-            className="fixed inset-0 z-50 bg-[#1A122E]/90 backdrop-blur-md flex flex-col items-center justify-start md:justify-center p-4 md:p-10 overflow-y-auto"
+            className="fixed inset-0 h-[100dvh] w-full min-h-[100dvh] z-[99999] bg-[#1D1031]/95 backdrop-blur-md flex flex-col items-center justify-start py-6 sm:py-10 px-3 sm:px-6 md:px-10 overflow-y-auto overscroll-contain"
           >
             <motion.div 
               initial={{ scale: 0.92, y: 15 }}
@@ -885,12 +876,12 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
               exit={{ scale: 0.92, y: 15 }}
               transition={{ type: 'spring', duration: 0.5 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#2A1E40] border border-white/10 rounded-[32px] w-full max-w-5xl overflow-hidden shadow-2xl relative my-8"
+              className="bg-[#1D1031] border border-white/15 rounded-[28px] sm:rounded-[32px] w-full max-w-5xl overflow-hidden shadow-2xl relative my-auto shrink-0"
             >
-              {/* Close Button */}
+              {/* Sticky Close Button */}
               <button 
                 onClick={() => setSelectedProject(null)}
-                className={`absolute top-4 ${dir === 'rtl' ? 'left-4' : 'right-4'} z-10 p-2.5 rounded-full bg-[#1A122E]/80 text-white hover:text-[#F7941D] hover:bg-[#1A122E] transition-all duration-300 border border-white/5 cursor-pointer`}
+                className={`absolute top-3 sm:top-4 ${dir === 'rtl' ? 'left-3 sm:left-4' : 'right-3 sm:right-4'} z-30 p-2.5 rounded-full bg-[#180C2E]/90 text-white hover:text-[#F7941D] hover:bg-[#180C2E] transition-all duration-300 border border-white/20 cursor-pointer shadow-lg`}
                 title={t('portfolioGallery.close')}
               >
                 <X size={20} />
@@ -898,9 +889,9 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
 
               <div className="flex flex-col lg:flex-row min-h-[480px]">
                 {/* Left Side: Photo/Video carousel */}
-                <div className="lg:w-[55%] relative bg-[#1A122E] flex flex-col justify-center min-h-[280px] lg:min-h-0">
-                  <div className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden">
-                    {renderMedia(projectGallery[currentImageIndex], selectedProject.title, '(max-width: 1024px) 100vw, 55vw')}
+                <div className="lg:w-[55%] relative bg-[#150B24] flex flex-col justify-center items-center min-h-[280px] sm:min-h-[360px] lg:min-h-0 p-2">
+                  <div className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden rounded-2xl bg-[#120824]">
+                    {renderMedia(projectGallery[currentImageIndex] || selectedProject.image, selectedProject.title, '(max-width: 1024px) 100vw, 55vw', 'object-contain max-h-[60vh] sm:max-h-[70vh] w-full')}
                   </div>
 
                   {/* Carousel Controls */}
@@ -908,21 +899,21 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                     <>
                       <button 
                         onClick={handlePrevImage}
-                        className={`absolute ${dir === 'rtl' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 p-2 rounded-full bg-[#1A122E]/70 hover:bg-[#1A122E] text-white hover:text-[#F7941D] transition-colors cursor-pointer border border-white/5 z-10`}
+                        className={`absolute ${dir === 'rtl' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#180C2E]/80 hover:bg-[#180C2E] text-white hover:text-[#F7941D] transition-colors cursor-pointer border border-white/15 z-20 shadow-lg`}
                         title={t('portfolioGallery.prevProject')}
                       >
                         {dir === 'rtl' ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                       </button>
                       <button 
                         onClick={handleNextImage}
-                        className={`absolute ${dir === 'rtl' ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 p-2 rounded-full bg-[#1A122E]/70 hover:bg-[#1A122E] text-white hover:text-[#F7941D] transition-colors cursor-pointer border border-white/5 z-10`}
+                        className={`absolute ${dir === 'rtl' ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#180C2E]/80 hover:bg-[#180C2E] text-white hover:text-[#F7941D] transition-colors cursor-pointer border border-white/15 z-20 shadow-lg`}
                         title={t('portfolioGallery.nextProject')}
                       >
                         {dir === 'rtl' ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
                       </button>
 
                       {/* Dot indicators */}
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-[#1A122E]/60 px-3 py-1.5 rounded-full">
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 bg-[#180C2E]/80 px-3.5 py-1.5 rounded-full border border-white/10">
                         {projectGallery.map((_, i) => (
                           <button
                             key={i}
@@ -938,7 +929,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                 </div>
 
                 {/* Right Side: Description and Details */}
-                <div className={`lg:w-[45%] p-6 sm:p-8 md:p-10 flex flex-col justify-between border-t lg:border-t-0 ${dir === 'rtl' ? 'lg:border-r border-white/10' : 'lg:border-l border-white/10'} bg-[#2A1E40] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
+                <div className={`lg:w-[45%] p-6 sm:p-8 md:p-10 flex flex-col justify-between border-t lg:border-t-0 ${dir === 'rtl' ? 'lg:border-r border-white/10' : 'lg:border-l border-white/10'} bg-[#1D1031] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
                   <div>
                     {/* Category Label */}
                     <span className="text-xs font-bold text-[#F7941D] tracking-widest uppercase mb-2 block">
@@ -951,18 +942,18 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                     </h2>
 
                     {/* Meta info grid */}
-                    <div className="grid grid-cols-2 gap-4 bg-[#1A122E]/40 p-4 rounded-2xl mb-6 border border-white/5">
+                    <div className="grid grid-cols-2 gap-4 bg-[#180C2E]/60 p-4 rounded-2xl mb-6 border border-white/10">
                       <div className="flex items-center gap-2.5">
                         <User className="text-gray-400 shrink-0" size={16} />
                         <div>
-                          <span className="text-[10px] text-gray-500 block">{t('portfolioGallery.client')}</span>
+                          <span className="text-[10px] text-gray-400 block">{t('portfolioGallery.client')}</span>
                           <span className="text-xs font-medium text-gray-200 line-clamp-1">{selectedProject.client}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2.5">
                         <Calendar className="text-gray-400 shrink-0" size={16} />
                         <div>
-                          <span className="text-[10px] text-gray-500 block">{t('portfolioGallery.year')}</span>
+                          <span className="text-[10px] text-gray-400 block">{t('portfolioGallery.year')}</span>
                           <span className="text-xs font-medium text-gray-200">{selectedProject.year}</span>
                         </div>
                       </div>
@@ -994,7 +985,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                               }}
                               className={`text-xs font-medium font-mono px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
                                 isTechActive
-                                  ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-md shadow-[#F7941D]/30'
+                                  ? 'bg-[#F7941D] text-white border-[#F7941D] font-bold shadow-sm'
                                   : 'bg-[#F7941D]/10 text-[#F7941D] border-[#F7941D]/30 hover:border-[#F7941D] hover:bg-[#F7941D] hover:text-white'
                               }`}
                               title={`${t('portfolioGallery.filterByTech')}: ${tool}`}
@@ -1009,13 +1000,13 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                   </div>
 
                   {/* Call to action on bottom of details */}
-                  <div className="pt-6 border-t border-white/5 flex gap-3">
+                  <div className="pt-6 border-t border-white/10 flex gap-3">
                     <button
                       type="button"
                       onClick={(e) => handleShareProject(selectedProject, e)}
                       className={`px-4 py-3 rounded-xl font-medium text-sm transition-all duration-300 border flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
                         copiedProjectId === selectedProject.id
-                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-lg shadow-emerald-600/30 font-bold'
+                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-md font-bold'
                           : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
                       }`}
                       title={t('portfolioGallery.shareProject')}
@@ -1045,7 +1036,7 @@ export default function PortfolioGallery({ onBackToHome }: PortfolioGalleryProps
                       )}`}
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex-grow flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#F7941D] hover:bg-[#E06C00] text-white font-medium text-sm transition-all duration-300"
+                      className="flex-grow flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#F7941D] hover:bg-[#E06C00] text-white font-medium text-sm transition-all duration-300 shadow-md"
                     >
                       <MessageCircle size={18} />
                       <span>{t('portfolioGallery.contactRegardingProj')}</span>

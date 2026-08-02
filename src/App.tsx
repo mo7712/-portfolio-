@@ -229,6 +229,62 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
   const lastTimeRef = useRef<number | null>(null);
   const accumulatedTimeRef = useRef<number>(0);
 
+  // Mouse Parallax Position State (Normalized -1 to +1)
+  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
+
+  // Framer Motion useScroll hook for dynamic interactive scroll gradient transitions
+  const { scrollY } = useScroll();
+
+  const scrollOverlayOpacity = useTransform(scrollY, [0, 450, 900], [0.6, 0.85, 0.98]);
+  const waveContainerOpacity = useTransform(scrollY, [0, 500, 1000], [0.35, 0.55, 0.18]);
+  const scrollGradientBackground = useTransform(
+    scrollY,
+    [0, 350, 750],
+    [
+      'linear-gradient(180deg, rgba(29, 16, 49, 0.35) 0%, rgba(49, 21, 85, 0.55) 50%, rgba(29, 16, 49, 0.95) 100%)',
+      'linear-gradient(180deg, rgba(49, 21, 85, 0.6) 0%, rgba(247, 148, 29, 0.18) 45%, rgba(23, 11, 40, 0.98) 100%)',
+      'linear-gradient(180deg, rgba(16, 6, 32, 0.9) 0%, rgba(108, 78, 162, 0.45) 55%, rgba(17, 7, 36, 1) 100%)'
+    ]
+  );
+
+  // Mouse & Touch Parallax Event Handler - shift SVG elements slowly opposite to pointer/touch direction
+  useEffect(() => {
+    let mouseAnimFrame: number | null = null;
+
+    const updateOffset = (clientX: number, clientY: number) => {
+      if (mouseAnimFrame !== null) return;
+      mouseAnimFrame = requestAnimationFrame(() => {
+        mouseAnimFrame = null;
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        const offsetX = (clientX - cx) / cx;
+        const offsetY = (clientY - cy) / cy;
+        setMouseOffset({ x: offsetX, y: offsetY });
+      });
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      updateOffset(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches.length > 0) {
+        updateOffset(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchstart', handleTouchMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouchMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      if (mouseAnimFrame !== null) cancelAnimationFrame(mouseAnimFrame);
+    };
+  }, []);
+
   useEffect(() => {
     if (videoRef.current) {
       if (isMediaPlaying) {
@@ -320,71 +376,97 @@ const HeroWavyBackground = ({ isMediaPlaying = true }: { isMediaPlaying?: boolea
         )
       )}
 
-      {/* Dark Purple Gradient Overlay to guarantee high text contrast and legibility */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1D1031]/40 via-transparent to-[#1D1031]/95 z-10" />
-
-      {/* Ambient glowing blobs with drift animations driven by rAF behind the video for soft depth glow */}
-      <div 
-        ref={blob1Ref}
-        className="absolute top-[-20%] left-[-15%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[#4C3475]/15 to-transparent blur-[130px] will-change-transform" 
-      />
-      <div 
-        ref={blob2Ref}
-        className="absolute bottom-[-10%] right-[-15%] w-[65%] h-[65%] rounded-full bg-gradient-to-tr from-[#6C4EA2]/12 to-transparent blur-[120px] will-change-transform" 
+      {/* Dynamic Purple Gradient Overlay reacting smoothly to scroll depth via useScroll */}
+      <motion.div 
+        className="absolute inset-0 z-10 pointer-events-none transition-colors duration-300" 
+        style={{
+          background: scrollGradientBackground,
+          opacity: scrollOverlayOpacity
+        }}
       />
 
-      {/* SVG Waves Container on top of the video (z-20) */}
-      <div className="absolute inset-0 opacity-25 select-none overflow-hidden z-20">
-        {/* Layer 1: Slow Wavy Stream */}
-        <svg 
-          className="absolute bottom-0 left-0 w-[300%] h-[65%] min-h-[400px] animate-wave-slow origin-bottom" 
-          viewBox="0 0 1440 74" 
-          fill="none" 
-          preserveAspectRatio="none"
+      {/* SVG Waves Container on top of video (z-20) with Dynamic Scroll Opacity & Mouse Parallax */}
+      <motion.div 
+        className="absolute inset-0 select-none overflow-hidden z-20 pointer-events-none"
+        style={{ opacity: waveContainerOpacity }}
+      >
+        {/* Layer 1: Slow Wavy Stream with GPU Acceleration & Mouse Parallax (Slowest movement opposite mouse) */}
+        <div
+          className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
+          style={{
+            transform: `translate3d(${-mouseOffset.x * 22}px, ${-mouseOffset.y * 14}px, 0)`,
+            willChange: 'transform'
+          }}
         >
-          <path d="M0,32 C240,70 480,0 720,32 C960,64 1200,10 1440,32 L1440,74 L0,74 Z" fill="url(#wave-grad-1)" />
-          <defs>
-            <linearGradient id="wave-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#4C3475" stopOpacity="0.4" />
-              <stop offset="50%" stopColor="#311E4E" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#1D1031" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-        </svg>
+          <svg 
+            className="absolute bottom-0 left-0 w-[300%] h-[65%] min-h-[400px] animate-wave-slow origin-bottom" 
+            viewBox="0 0 1440 74" 
+            fill="none" 
+            preserveAspectRatio="none"
+            style={{ transform: 'translateZ(0)' }}
+          >
+            <path d="M0,32 C240,70 480,0 720,32 C960,64 1200,10 1440,32 L1440,74 L0,74 Z" fill="url(#wave-grad-1)" />
+            <defs>
+              <linearGradient id="wave-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#4C3475" stopOpacity="0.45" />
+                <stop offset="50%" stopColor="#311E4E" stopOpacity="0.65" />
+                <stop offset="100%" stopColor="#1D1031" stopOpacity="0.85" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
 
-        {/* Layer 2: Medium Wavy Stream */}
-        <svg 
-          className="absolute bottom-0 left-0 w-[300%] h-[55%] min-h-[350px] animate-wave-medium origin-bottom" 
-          viewBox="0 0 1440 74" 
-          fill="none" 
-          preserveAspectRatio="none"
+        {/* Layer 2: Medium Wavy Stream with Mouse Parallax (Medium depth shift) */}
+        <div
+          className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
+          style={{
+            transform: `translate3d(${-mouseOffset.x * 38}px, ${-mouseOffset.y * 24}px, 0)`,
+            willChange: 'transform'
+          }}
         >
-          <path d="M0,45 C280,10 560,60 840,30 C1120,0 1400,50 1440,45 L1440,74 L0,74 Z" fill="url(#wave-grad-2)" />
-          <defs>
-            <linearGradient id="wave-grad-2" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#6C4EA2" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#22133A" stopOpacity="0.9" />
-            </linearGradient>
-          </defs>
-        </svg>
+          <svg 
+            className="absolute bottom-0 left-0 w-[300%] h-[55%] min-h-[350px] animate-wave-medium origin-bottom" 
+            viewBox="0 0 1440 74" 
+            fill="none" 
+            preserveAspectRatio="none"
+            style={{ transform: 'translateZ(0)' }}
+          >
+            <path d="M0,45 C280,10 560,60 840,30 C1120,0 1400,50 1440,45 L1440,74 L0,74 Z" fill="url(#wave-grad-2)" />
+            <defs>
+              <linearGradient id="wave-grad-2" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#6C4EA2" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#22133A" stopOpacity="0.9" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
 
-        {/* Layer 3: Fast Wavy Stream */}
-        <svg 
-          className="absolute bottom-0 left-0 w-[300%] h-[45%] min-h-[300px] animate-wave-fast origin-bottom" 
-          viewBox="0 0 1440 74" 
-          fill="none" 
-          preserveAspectRatio="none"
+        {/* Layer 3: Fast Wavy Stream with Mouse Parallax (Foreground deepest shift) */}
+        <div
+          className="absolute inset-0 pointer-events-none transition-transform duration-500 ease-out"
+          style={{
+            transform: `translate3d(${-mouseOffset.x * 55}px, ${-mouseOffset.y * 36}px, 0)`,
+            willChange: 'transform'
+          }}
         >
-          <path d="M0,15 C180,45 360,5 540,25 C720,45 900,15 1080,25 C1260,35 1440,15 1440,15 L1440,74 L0,74 Z" fill="url(#wave-grad-3)" />
-          <defs>
-            <linearGradient id="wave-grad-3" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#F7941D" stopOpacity="0.08" />
-              <stop offset="50%" stopColor="#553982" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#170A28" stopOpacity="0.95" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
+          <svg 
+            className="absolute bottom-0 left-0 w-[300%] h-[45%] min-h-[300px] animate-wave-fast origin-bottom" 
+            viewBox="0 0 1440 74" 
+            fill="none" 
+            preserveAspectRatio="none"
+            style={{ transform: 'translateZ(0)' }}
+          >
+            <path d="M0,15 C180,45 360,5 540,25 C720,45 900,15 1080,25 C1260,35 1440,15 1440,15 L1440,74 L0,74 Z" fill="url(#wave-grad-3)" />
+            <defs>
+              <linearGradient id="wave-grad-3" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#F7941D" stopOpacity="0.12" />
+                <stop offset="50%" stopColor="#553982" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#170A28" stopOpacity="0.95" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </motion.div>
     </div>
   );
 };
@@ -1206,7 +1288,7 @@ export default function App() {
                         src={t('nav.logoUrl')} 
                         alt={t('nav.brandName')} 
                         referrerPolicy="no-referrer"
-                        className="w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] object-contain rounded-xl drop-shadow-md shrink-0 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(247,148,29,0.5)] transition-all duration-300"
+                        className="w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] object-contain rounded-xl drop-shadow-md shrink-0 group-hover:scale-105 transition-all duration-300"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                           const fallbackLogo = document.getElementById('mona-logo-fallback');
@@ -1217,7 +1299,7 @@ export default function App() {
                     <MonaLogo 
                       id="mona-logo-fallback"
                       size={46} 
-                      className={`w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] shrink-0 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(247,148,29,0.5)] transition-all duration-300 ${t('nav.logoUrl') ? 'hidden' : ''}`} 
+                      className={`w-[32px] h-[32px] sm:w-[40px] sm:h-[40px] md:w-[46px] md:h-[46px] shrink-0 group-hover:scale-105 transition-all duration-300 ${t('nav.logoUrl') ? 'hidden' : ''}`} 
                     />
                     <EditableText textKey="nav.brandName" fallbackText="Manea" className="inline-block">
                       <span className="font-extrabold bg-gradient-to-r from-[#F7941D] via-amber-200 to-white bg-clip-text text-transparent text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">
@@ -1240,7 +1322,7 @@ export default function App() {
                       <EditableText textKey="nav.about" fallbackText="عني">
                         <span>{t('nav.about')}</span>
                       </EditableText>
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
                         currentSection === 'about' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
                       }`} />
                     </a>
@@ -1256,7 +1338,7 @@ export default function App() {
                       <EditableText textKey="nav.services" fallbackText="الخدمات">
                         <span>{t('nav.services')}</span>
                       </EditableText>
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
                         currentSection === 'services' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
                       }`} />
                     </a>
@@ -1272,7 +1354,7 @@ export default function App() {
                       <EditableText textKey="nav.projects" fallbackText="المشاريع">
                         <span>{t('nav.projects')}</span>
                       </EditableText>
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
                         currentSection === 'projects' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
                       }`} />
                     </a>
@@ -1291,7 +1373,7 @@ export default function App() {
                         <span>{t('nav.portfolio')}</span>
                       </EditableText>
                       <span className="w-1.5 h-1.5 rounded-full bg-[#F7941D] animate-pulse" />
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#F7941D] ${
+                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
                         (activeView as string) === 'portfolio' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
                       }`} />
                     </button>
@@ -1301,7 +1383,7 @@ export default function App() {
                         trackCTA('Header Contact CTA', 'Header Nav', { target: 'contact' });
                         handleScrollTo(e, 'contact');
                       }} 
-                      className={`relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-[0_0_15px_rgba(247,148,29,0.3)] hover:shadow-[0_0_25px_rgba(247,148,29,0.6)] hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2 ${
+                      className={`relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2 ${
                         currentSection === 'contact' ? 'ring-2 ring-[#F7941D] ring-offset-2 ring-offset-[#180C2E]' : ''
                       }`}
                     >
@@ -1480,7 +1562,7 @@ export default function App() {
                             handleScrollTo(e, 'contact');
                             setMobileMenuOpen(false);
                           }}
-                          className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-lg hover:shadow-[#F7941D]/30 transition-all duration-300 active:scale-98"
+                          className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 active:scale-98"
                         >
                           <MessageCircle size={18} />
                           <span>{t('nav.contact')}</span>
@@ -1546,157 +1628,163 @@ export default function App() {
               )}
             </AnimatePresence>
 
-        <div className="flex-grow flex flex-col justify-center items-center relative z-10 pt-4 sm:pt-0">
-          <div className="w-full text-center mt-1 xs:mt-3 sm:mt-6 md:-mt-4 lg:-mt-8 px-2">
-            <EditableText textKey="hero.welcome" fallbackText="مرحباً، أنا مانع" className="w-full">
-              <CinematicTitle key={language} text={t('hero.welcome')} />
-            </EditableText>
-          </div>
-        </div>
-
-        <div className="w-full max-w-7xl mx-auto px-4 xs:px-6 sm:px-10 md:px-14 lg:px-16 flex flex-row justify-between items-end pb-3 sm:pb-6 md:pb-8 relative z-30 gap-2 sm:gap-4">
-          {/* Subtitle Text without box container - crisp, high-end typography */}
-          <div className="max-w-[72%] xs:max-w-[75%] sm:max-w-[550px] md:max-w-[650px] lg:max-w-[750px] relative z-30">
-            <EditableText textKey="hero.subtitle" fallbackText="أصنع حضوراً بصرياً يترك أثراً." multiline className="w-full">
-              <BlurInText 
-                key={language}
-                text={t('hero.subtitle')}
-                className="font-extrabold tracking-tight sm:tracking-normal leading-tight xs:leading-snug sm:leading-relaxed text-[0.88rem] xs:text-[1.05rem] sm:text-[1.25rem] md:text-[1.5rem] lg:text-[1.75rem] text-start drop-shadow-md"
-              />
-            </EditableText>
+        {/* --- UNIFIED RESPONSIVE HERO SECTION (All screen sizes: Mobile, Tablet, Laptop, Desktop) --- */}
+        <div className="flex flex-col justify-between flex-grow relative z-10 w-full min-h-[calc(100vh-80px)] md:min-h-0 md:h-full py-4 sm:py-6 md:py-8">
+          {/* Top Title Container */}
+          <div className="flex-grow flex flex-col justify-center items-center relative z-10 pt-2 sm:pt-4 md:pt-0">
+            <div className="w-full text-center px-3 xs:px-4">
+              <EditableText textKey="hero.welcome" fallbackText="مرحباً، أنا مانع" className="w-full">
+                <CinematicTitle key={language} text={t('hero.welcome')} />
+              </EditableText>
+            </div>
           </div>
 
-          {/* Sleek, Compact Media Pause/Play Controller on the opposite side */}
-          <FadeIn delay={0.4} y={15} className="shrink-0">
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={toggleMediaPlayback}
-              aria-label={isMediaPlaying 
-                ? (language === 'ar' ? 'إيقاف تشغيل الحركة والوسائط' : 'Pause motion graphics and videos') 
-                : (language === 'ar' ? 'تشغيل الحركة والوسائط' : 'Enable motion graphics and videos')
-              }
-              className="relative group/media flex flex-row flex-nowrap items-center justify-center min-w-[36px] xs:min-w-[100px] sm:min-w-0 gap-1 xs:gap-2 sm:gap-2.5 px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 sm:py-2.5 rounded-full bg-[#160B2C]/80 [@media(hover:hover)]:hover:bg-[#200D3A] active:bg-[#200D3A] border border-[#F7941D]/40 [@media(hover:hover)]:hover:border-[#F7941D] active:border-[#F7941D] text-white shadow-[0_4px_20px_rgba(247,148,29,0.25)] [@media(hover:hover)]:hover:shadow-[0_8px_30px_rgba(247,148,29,0.55)] active:shadow-[0_4px_15px_rgba(247,148,29,0.4)] backdrop-blur-2xl transition-all duration-300 cursor-pointer select-none ring-1 ring-white/10 touch-manipulation min-h-[38px] xs:min-h-[42px] sm:min-h-[40px] before:absolute before:-inset-2 before:content-['']"
-              title={isMediaPlaying 
-                ? (language === 'ar' ? 'إيقاف تشغيل الفيديوهات والخلفيات المتحركة لتسريع وتخفيف الموقع' : 'Pause background media to speed up site') 
-                : (language === 'ar' ? 'تشغيل الفيديوهات والخلفيات المتحركة' : 'Resume background media')
-              }
-            >
-              {/* Screen reader live region for state changes */}
-              <span className="sr-only" aria-live="polite" role="status">
-                {isMediaPlaying 
-                  ? (language === 'ar' ? 'الحركة مفعلة - اضغط لإيقاف الحركة' : 'Motion Enabled - Press to pause motion')
-                  : (language === 'ar' ? 'الحركة متوقفة - اضغط لتشغيل الحركة' : 'Motion Paused - Press to enable motion')
-                }
-              </span>
+          {/* Central 3D Avatar Image with Levitation & Magnet effect */}
+          <FadeIn delay={0.6} y={30} className="relative md:absolute left-1/2 -translate-x-1/2 my-4 md:my-0 bottom-auto md:bottom-10 xs:md:bottom-14 sm:md:bottom-0 z-20 w-[210px] xs:w-[250px] sm:w-[310px] md:w-[380px] lg:w-[460px] xl:w-[510px] 2xl:w-[580px] shrink-0 self-center">
+            <Magnet>
+              <motion.div
+                animate={{
+                  y: isMediaPlaying ? -15 : 0,
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: isMediaPlaying ? Infinity : 0,
+                  repeatType: "reverse",
+                  ease: "easeInOut"
+                }}
+                className="relative group mx-auto"
+              >
+                {/* Radial backlight glow behind 3D avatar */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#F7941D]/30 via-[#6C4EA2]/20 to-transparent blur-2xl sm:blur-3xl rounded-full transform scale-90 -z-10 pointer-events-none" />
 
-              {/* Glowing LED Status Indicator */}
-              <span className="relative flex h-2 w-2 xs:h-2.5 xs:w-2.5 items-center justify-center shrink-0">
-                {isMediaPlaying ? (
-                  <>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F7941D] opacity-80" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 xs:h-2 xs:w-2 bg-[#F7941D] shadow-[0_0_8px_#F7941D]" />
-                  </>
-                ) : (
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 xs:h-2 xs:w-2 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                )}
-              </span>
-
-              {/* Icon & Equalizer */}
-              <div className="flex flex-row items-center gap-1 sm:gap-1.5 text-[#F7941D] shrink-0 justify-center">
-                <AnimatePresence mode="wait" initial={false}>
-                  {isMediaPlaying ? (
-                    <motion.div
-                      key="pause-icon"
-                      initial={{ opacity: 0, scale: 0.75, rotate: -15 }}
-                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                      exit={{ opacity: 0, scale: 0.75, rotate: 15 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="flex items-center gap-1 sm:gap-1.5"
-                    >
-                      <Pause size={12} className="fill-[#F7941D] text-[#F7941D] shrink-0 sm:w-3.5 sm:h-3.5" />
-                      <div className="hidden xs:flex items-end gap-[2px] h-2.5 px-0.5 shrink-0">
-                        <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.1s] h-full" />
-                        <span className="w-[2px] bg-amber-300 rounded-full animate-bounce [animation-delay:0.3s] h-2/3" />
-                        <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.2s] h-4/5" />
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="play-icon"
-                      initial={{ opacity: 0, scale: 0.75, rotate: 15 }}
-                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                      exit={{ opacity: 0, scale: 0.75, rotate: -15 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="flex items-center"
-                    >
-                      <Play size={12} className="fill-[#F7941D] text-[#F7941D] shrink-0 sm:w-3.5 sm:h-3.5" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Action Title */}
-              <span className="hidden xs:inline-block text-[10px] xs:text-[11px] sm:text-xs font-semibold whitespace-nowrap text-center text-white [@media(hover:hover)]:group-hover/media:text-[#F7941D] group-active/media:text-[#F7941D] transition-colors shrink-0">
-                {isMediaPlaying 
-                  ? (language === 'ar' ? 'إيقاف الحركة' : 'Pause Motion')
-                  : (language === 'ar' ? 'تشغيل الحركة' : 'Play Motion')
-                }
-              </span>
-            </motion.button>
-          </FadeIn>
-        </div>
-
-        <FadeIn delay={0.6} y={30} className="absolute left-1/2 -translate-x-1/2 bottom-10 xs:bottom-14 sm:bottom-0 z-20 w-[220px] xs:w-[260px] sm:w-[310px] md:w-[380px] lg:w-[460px] xl:w-[510px] 2xl:w-[580px] pointer-events-none sm:pointer-events-auto">
-          <Magnet>
-            <motion.div
-              animate={{
-                y: isMediaPlaying ? -15 : 0,
-              }}
-              transition={{
-                duration: 3,
-                repeat: isMediaPlaying ? Infinity : 0,
-                repeatType: "reverse",
-                ease: "easeInOut"
-              }}
-              className="relative group"
-            >
-              {/* Radial backlight glow behind 3D avatar */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#F7941D]/25 via-[#6C4EA2]/15 to-transparent blur-2xl sm:blur-3xl rounded-full transform scale-90 -z-10 pointer-events-none" />
-
-              {(() => {
-                const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp";
-                if (isVideoUrl(profileImg)) {
+                {(() => {
+                  const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp";
+                  if (isVideoUrl(profileImg)) {
+                    return (
+                      <video 
+                        src={profileImg} 
+                        autoPlay={isMediaPlaying}
+                        loop 
+                        muted 
+                        playsInline 
+                        onPlay={(e) => {
+                          if (!isMediaPlaying) e.currentTarget.pause();
+                        }}
+                        className="w-full h-auto object-contain drop-shadow-2xl rounded-[32px] sm:rounded-[40px] md:rounded-[60px]"
+                      />
+                    );
+                  }
                   return (
-                    <video 
-                      src={profileImg} 
-                      autoPlay={isMediaPlaying}
-                      loop 
-                      muted 
-                      playsInline 
-                      onPlay={(e) => {
-                        if (!isMediaPlaying) e.currentTarget.pause();
-                      }}
-                      className="w-full h-auto object-contain drop-shadow-2xl rounded-[40px] md:rounded-[60px]"
+                    <EditableImage
+                      imageKey="hero.profileImage"
+                      src={profileImg}
+                      alt="مانع - صانع ثلاثي الأبعاد"
+                      className="w-full h-auto object-contain drop-shadow-2xl rounded-[32px] sm:rounded-[40px] md:rounded-[60px]"
                     />
                   );
+                })()}
+              </motion.div>
+            </Magnet>
+          </FadeIn>
+
+          {/* Bottom Bar: Subtitle & Media Playback Control */}
+          <div className="w-full max-w-7xl mx-auto px-4 xs:px-6 sm:px-10 md:px-14 lg:px-16 flex flex-col sm:flex-row justify-between items-center sm:items-end pb-3 sm:pb-6 md:pb-8 relative z-30 gap-4 sm:gap-4">
+            {/* Subtitle Text */}
+            <div className="w-full sm:max-w-[55%] md:max-w-[650px] lg:max-w-[750px] relative z-30 text-center sm:text-start">
+              <EditableText textKey="hero.subtitle" fallbackText="أصنع حضوراً بصرياً يترك أثراً." multiline className="w-full">
+                <BlurInText 
+                  key={language}
+                  text={t('hero.subtitle')}
+                  className="font-extrabold tracking-tight sm:tracking-normal leading-tight xs:leading-snug sm:leading-relaxed text-[0.92rem] xs:text-[1.05rem] sm:text-[1.25rem] md:text-[1.5rem] lg:text-[1.75rem] text-center sm:text-start drop-shadow-md"
+                />
+              </EditableText>
+            </div>
+
+            {/* Media Controller */}
+            <FadeIn delay={0.4} y={15} className="shrink-0">
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleMediaPlayback}
+                aria-label={isMediaPlaying 
+                  ? (language === 'ar' ? 'إيقاف تشغيل الحركة والوسائط' : 'Pause motion graphics and videos') 
+                  : (language === 'ar' ? 'تشغيل الحركة والوسائط' : 'Enable motion graphics and videos')
                 }
-                return (
-                  <EditableImage
-                    imageKey="hero.profileImage"
-                    src={profileImg}
-                    alt="مانع - صانع ثلاثي الأبعاد"
-                    className="w-full h-auto object-contain drop-shadow-2xl rounded-[40px] md:rounded-[60px]"
-                  />
-                );
-              })()}
-            </motion.div>
-          </Magnet>
-        </FadeIn>
+                className="relative group/media flex flex-row flex-nowrap items-center justify-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[#160B2C]/90 [@media(hover:hover)]:hover:bg-[#200D3A] active:bg-[#200D3A] border border-[#F7941D]/40 [@media(hover:hover)]:hover:border-[#F7941D] active:border-[#F7941D] text-white shadow-md [@media(hover:hover)]:hover:shadow-lg active:shadow-sm backdrop-blur-2xl transition-all duration-300 cursor-pointer select-none ring-1 ring-white/10 touch-manipulation min-h-[44px] before:absolute before:-inset-2 before:content-['']"
+                title={isMediaPlaying 
+                  ? (language === 'ar' ? 'إيقاف تشغيل الفيديوهات والخلفيات المتحركة لتسريع وتخفيف الموقع' : 'Pause background media to speed up site') 
+                  : (language === 'ar' ? 'تشغيل الفيديوهات والخلفيات المتحركة' : 'Resume background media')
+                }
+              >
+                {/* Screen reader live region */}
+                <span className="sr-only" aria-live="polite" role="status">
+                  {isMediaPlaying 
+                    ? (language === 'ar' ? 'الحركة مفعلة - اضغط لإيقاف الحركة' : 'Motion Enabled - Press to pause motion')
+                    : (language === 'ar' ? 'الحركة متوقفة - اضغط لتشغيل الحركة' : 'Motion Paused - Press to enable motion')
+                  }
+                </span>
+
+                {/* LED Indicator */}
+                <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+                  {isMediaPlaying ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F7941D] opacity-80" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F7941D]" />
+                    </>
+                  ) : (
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                  )}
+                </span>
+
+                {/* Equalizer Icon */}
+                <div className="flex flex-row items-center gap-1 sm:gap-1.5 text-[#F7941D] shrink-0 justify-center">
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isMediaPlaying ? (
+                      <motion.div
+                        key="pause-icon"
+                        initial={{ opacity: 0, scale: 0.75, rotate: -15 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.75, rotate: 15 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Pause size={14} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
+                        <div className="flex items-end gap-[2px] h-3 px-0.5 shrink-0">
+                          <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.1s] h-full" />
+                          <span className="w-[2px] bg-amber-300 rounded-full animate-bounce [animation-delay:0.3s] h-2/3" />
+                          <span className="w-[2px] bg-[#F7941D] rounded-full animate-bounce [animation-delay:0.2s] h-4/5" />
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="play-icon"
+                        initial={{ opacity: 0, scale: 0.75, rotate: 15 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.75, rotate: -15 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="flex items-center"
+                      >
+                        <Play size={14} className="fill-[#F7941D] text-[#F7941D] shrink-0" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Title */}
+                <span className="text-xs font-bold whitespace-nowrap text-center text-white [@media(hover:hover)]:group-hover/media:text-[#F7941D] group-active/media:text-[#F7941D] transition-colors shrink-0">
+                  {isMediaPlaying 
+                    ? (language === 'ar' ? 'إيقاف الحركة' : 'Pause Motion')
+                    : (language === 'ar' ? 'تشغيل الحركة' : 'Play Motion')
+                  }
+                </span>
+              </motion.button>
+            </FadeIn>
+          </div>
+        </div>
       </section>
 
       {/* 2. MARQUEE SECTION */}
-      <section className="bg-[#2A1E40] py-12 sm:py-16 md:py-20 overflow-hidden relative border-t border-[#331B5A]">
+      <section className="bg-[#1D1031] py-12 sm:py-16 md:py-20 overflow-hidden relative">
         <div 
           className="flex gap-3 mb-3"
           style={{ 
@@ -1714,7 +1802,7 @@ export default function App() {
               referrerPolicy="no-referrer"
               loading="lazy"
               decoding="async"
-              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" 
+              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-white/10" 
             />
           ))}
         </div>
@@ -1735,14 +1823,14 @@ export default function App() {
               referrerPolicy="no-referrer"
               loading="lazy"
               decoding="async"
-              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-[#331B5A]" 
+              className="w-[240px] h-[150px] sm:w-[320px] sm:h-[200px] md:w-[420px] md:h-[270px] rounded-2xl object-cover shrink-0 border border-white/10" 
             />
           ))}
         </div>
       </section>
 
       {/* 3. ABOUT SECTION */}
-      <section id="about" ref={aboutRef} className="min-h-screen bg-[#3A2A56] relative flex flex-col items-center justify-center py-20 overflow-hidden">
+      <section id="about" ref={aboutRef} className="min-h-screen bg-[#1D1031] relative flex flex-col items-center justify-center py-20 overflow-hidden">
         
         {/* Decorative 3D Images with Smooth Parallax, Floating Bobbing Loop & Interactive Spring Motion */}
         <FadeIn delay={0.1} x={-40} y={0} duration={0.9} className="absolute top-[8%] right-[8%] sm:top-[10%] sm:right-[12%] md:top-[12%] md:right-[15%] w-[45px] xs:w-[65px] sm:w-[95px] md:w-[130px] lg:w-[160px] opacity-40 sm:opacity-100 z-20 pointer-events-auto">
@@ -1754,7 +1842,7 @@ export default function App() {
               whileTap={{ scale: 1.05 }}
               className="cursor-pointer group"
             >
-              <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.webp" alt="Video Editing 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+              <img src="https://i.ibb.co/vxYLRcRs/video-editing-v2.webp" alt="Video Editing 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-xl group-hover:drop-shadow-2xl transition-all duration-300" />
             </motion.div>
           </motion.div>
         </FadeIn>
@@ -1768,7 +1856,7 @@ export default function App() {
               whileTap={{ scale: 1.05 }}
               className="cursor-pointer group"
             >
-              <img src="https://i.ibb.co/F43mtR51/social-ads-v2.webp" alt="Social Ads 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+              <img src="https://i.ibb.co/F43mtR51/social-ads-v2.webp" alt="Social Ads 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-xl group-hover:drop-shadow-2xl transition-all duration-300" />
             </motion.div>
           </motion.div>
         </FadeIn>
@@ -1782,7 +1870,7 @@ export default function App() {
               whileTap={{ scale: 1.05 }}
               className="cursor-pointer group"
             >
-              <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.webp" alt="Pen Tool 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+              <img src="https://i.ibb.co/NddHTbg7/pen-tool-v2.webp" alt="Pen Tool 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-xl group-hover:drop-shadow-2xl transition-all duration-300" />
             </motion.div>
           </motion.div>
         </FadeIn>
@@ -1796,7 +1884,7 @@ export default function App() {
               whileTap={{ scale: 1.05 }}
               className="cursor-pointer group"
             >
-              <img src="https://i.ibb.co/CsXrWskK/web-design-v2.webp" alt="Web Design 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-2xl group-hover:drop-shadow-[0_20px_35px_rgba(247,148,29,0.45)] transition-all duration-300" />
+              <img src="https://i.ibb.co/CsXrWskK/web-design-v2.webp" alt="Web Design 3D" width={500} height={500} referrerPolicy="no-referrer" loading="lazy" className="w-full h-auto drop-shadow-xl group-hover:drop-shadow-2xl transition-all duration-300" />
             </motion.div>
           </motion.div>
         </FadeIn>
@@ -1834,7 +1922,7 @@ export default function App() {
       <ServicesPinnedSection />
 
       {/* 5. PROJECTS SECTION */}
-      <section id="projects" className="bg-[#2A1E40] rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] -mt-10 sm:-mt-12 md:-mt-14 z-30 relative py-20 pb-40">
+      <section id="projects" className="bg-[#1D1031] z-30 relative py-20 pb-40">
         <div ref={projectsTitleRef} className="w-full text-center relative z-10 max-w-7xl mx-auto flex flex-col items-center justify-center select-none mb-16 px-6 overflow-visible">
           <div className="relative inline-block max-w-full overflow-visible py-2 px-2">
             <EditableText textKey="projects.title" fallbackText="المشاريع" className="w-full">
@@ -1909,9 +1997,6 @@ export default function App() {
 
       {/* 5.5 SUCCESS PARTNERS SECTION */}
       <section id="partners" className="bg-[#1D1031] py-20 relative z-35 overflow-hidden">
-        {/* Decorative background ambient glowing orbs */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-[#F7941D]/5 rounded-full blur-[120px] pointer-events-none" />
-        
         <div className="max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20 text-center mb-12 sm:mb-16 relative z-10">
           <FadeIn y={20} duration={0.6}>
             <span className="text-[#F7941D] text-xs sm:text-sm font-bold uppercase tracking-widest bg-[#F7941D]/10 px-4 py-2 rounded-full mb-3 inline-block">
@@ -1952,56 +2037,15 @@ export default function App() {
                     }
                   },
                   hover: {
-                    y: -10,
-                    scale: 1.07,
+                    y: -6,
+                    scale: 1.04,
                     transition: {
-                      duration: 0.4,
+                      duration: 0.3,
                       ease: [0.25, 1, 0.5, 1]
                     }
                   }
                 }}
-                className="partner-card group bg-white border border-gray-100 hover:border-[#F7941D] p-4 sm:p-6 flex items-center justify-center w-36 sm:w-52 aspect-[16/9] h-auto shrink-0 transition-all duration-400 select-none cursor-pointer backdrop-blur-md"
-                onMouseMove={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                  e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                  e.currentTarget.style.setProperty('--glow-opacity', '1');
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.setProperty('--glow-opacity', '0');
-                }}
-                onTouchStart={(e) => {
-                  if (e.touches && e.touches.length > 0) {
-                    const touch = e.touches[0];
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const y = touch.clientY - rect.top;
-                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                  }
-                  e.currentTarget.style.setProperty('--glow-opacity', '1');
-                  e.currentTarget.classList.add('is-touched');
-                }}
-                onTouchMove={(e) => {
-                  if (e.touches && e.touches.length > 0) {
-                    const touch = e.touches[0];
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const y = touch.clientY - rect.top;
-                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                  }
-                }}
-                onTouchEnd={(e) => {
-                  e.currentTarget.style.setProperty('--glow-opacity', '0');
-                  e.currentTarget.classList.remove('is-touched');
-                }}
-                onTouchCancel={(e) => {
-                  e.currentTarget.style.setProperty('--glow-opacity', '0');
-                  e.currentTarget.classList.remove('is-touched');
-                }}
+                className="partner-card group bg-white/95 hover:bg-white border border-gray-200/80 hover:border-[#F7941D] p-4 sm:p-6 flex items-center justify-center w-36 sm:w-52 aspect-[16/9] h-auto shrink-0 transition-all duration-300 select-none cursor-pointer"
               >
                 {isVideoUrl(logo) ? (
                   <video 
@@ -2031,7 +2075,7 @@ export default function App() {
       </section>
 
       {/* 6. FOOTER / CONTACT SECTION */}
-      <footer id="contact" className={`bg-[#1F0C3B] py-8 sm:py-12 border-t border-[#3A2A56] relative z-40 ${dir === 'rtl' ? 'text-right' : 'text-left'} overflow-hidden`}>
+      <footer id="contact" className={`bg-[#1D1031] py-8 sm:py-12 relative z-40 ${dir === 'rtl' ? 'text-right' : 'text-left'} overflow-hidden`}>
         {/* Immersive Animated Graphic Design & Brand Identity Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
           
@@ -2087,7 +2131,7 @@ export default function App() {
               const size = Math.floor(Math.random() * 6) + 3; // 3px to 9px
               const isPurple = Math.random() > 0.5;
               const color = isPurple ? 'bg-[#A359FF]' : 'bg-[#F7941D]';
-              const shadow = isPurple ? 'shadow-[0_0_10px_rgba(163,89,255,0.4)]' : 'shadow-[0_0_10px_rgba(247,148,29,0.4)]';
+              const shadow = 'shadow-sm';
               const left = `${Math.random() * 100}%`;
               const top = `${Math.random() * 100}%`;
               const duration = Math.random() * 14 + 10; // 10s to 24s
@@ -2183,7 +2227,7 @@ export default function App() {
               animate={{ y: [0, -15, 0], x: [0, 10, 0] }}
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="w-3 h-3 bg-white border border-[#F7941D] rounded-sm shadow-lg shadow-[#F7941D]/30" />
+              <div className="w-3 h-3 bg-white border border-[#F7941D] rounded-sm shadow-sm" />
               <div className="absolute w-[80px] h-[1px] bg-[#F7941D]/40 -z-10 rotate-12" />
               <div className="absolute left-[40px] top-[8px] w-1.5 h-1.5 bg-[#F7941D] rounded-full" />
               <div className="absolute right-[40px] bottom-[8px] w-1.5 h-1.5 bg-[#F7941D] rounded-full" />
@@ -2195,7 +2239,7 @@ export default function App() {
               animate={{ y: [0, 18, 0], x: [0, -12, 0] }}
               transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="w-3 h-3 bg-[#A359FF] border border-white rounded-sm shadow-lg shadow-[#A359FF]/30" />
+              <div className="w-3 h-3 bg-[#A359FF] border border-white rounded-sm shadow-sm" />
               <div className="absolute w-[100px] h-[1px] bg-[#A359FF]/40 -z-10 -rotate-15" />
               <div className="absolute left-[50px] -top-[13px] w-1.5 h-1.5 bg-white rounded-sm border border-[#A359FF]" />
               <div className="absolute right-[50px] top-[13px] w-1.5 h-1.5 bg-white rounded-sm border border-[#A359FF]" />
@@ -2416,7 +2460,7 @@ export default function App() {
             }}
             aria-label={language === 'ar' ? 'العودة إلى أعلى الصفحة' : 'Back to top'}
             title={language === 'ar' ? 'العودة إلى أعلى الصفحة' : 'Back to Top'}
-            className={`fixed bottom-6 ${dir === 'rtl' ? 'left-6 sm:left-8' : 'right-6 sm:right-8'} z-50 p-3 sm:p-3.5 rounded-2xl bg-[#180C2E]/90 hover:bg-[#28154A] border border-[#F7941D]/50 hover:border-[#F7941D] text-[#F7941D] hover:text-white shadow-[0_4px_20px_rgba(247,148,29,0.35)] hover:shadow-[0_8px_30px_rgba(247,148,29,0.6)] backdrop-blur-xl transition-all duration-300 cursor-pointer group flex items-center justify-center`}
+            className={`fixed bottom-6 ${dir === 'rtl' ? 'left-6 sm:left-8' : 'right-6 sm:right-8'} z-50 p-3 sm:p-3.5 rounded-2xl bg-[#180C2E]/90 hover:bg-[#28154A] border border-[#F7941D]/50 hover:border-[#F7941D] text-[#F7941D] hover:text-white shadow-md hover:shadow-lg backdrop-blur-xl transition-all duration-300 cursor-pointer group flex items-center justify-center`}
           >
             <ChevronUp size={20} className="sm:w-6 sm:h-6 group-hover:-translate-y-0.5 transition-transform duration-300" />
           </motion.button>
