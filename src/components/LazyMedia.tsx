@@ -225,7 +225,9 @@ export const LazyImage: React.FC<LazyImageProps> = ({
     >
       {/* Skeleton / Shimmer background while image is loading */}
       {!isLoaded && (
-        <div className="absolute inset-0 bg-[#2A1E40]/60 animate-pulse pointer-events-none z-0" />
+        <div className="absolute inset-0 bg-[#1D1031]/90 animate-pulse pointer-events-none z-0 flex items-center justify-center">
+          <div className="w-5 h-5 rounded-full border-2 border-[#F7941D]/30 border-t-[#F7941D] animate-spin" />
+        </div>
       )}
 
       {isInView && (
@@ -238,6 +240,9 @@ export const LazyImage: React.FC<LazyImageProps> = ({
             loading="eager"
             decoding="async"
             referrerPolicy={referrerPolicy}
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out transform scale-110 pointer-events-none select-none z-0 ${
               isLoaded ? 'opacity-0 scale-100' : 'opacity-100'
             }`}

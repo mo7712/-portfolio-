@@ -1309,17 +1309,17 @@ export default function App() {
                   </div>
                   
                   {/* Desktop Navigation (>= 768px) with Active Section Observer Indicators */}
-                  <div className="hidden md:flex items-center gap-1 lg:gap-3 text-xs md:text-sm font-medium">
+                  <div className="hidden md:flex items-center gap-2 lg:gap-4 text-xs md:text-sm font-medium">
                     <a 
                       href="#about" 
                       onClick={(e) => handleScrollTo(e, 'about')} 
-                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                      className={`relative group px-3.5 py-1.5 rounded-xl transition-all duration-300 ${
                         currentSection === 'about'
                           ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
                           : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
                       }`}
                     >
-                      <EditableText textKey="nav.about" fallbackText="عني">
+                      <EditableText textKey="nav.about" fallbackText="من أنا">
                         <span>{t('nav.about')}</span>
                       </EditableText>
                       <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
@@ -1329,7 +1329,7 @@ export default function App() {
                     <a 
                       href="#services" 
                       onClick={(e) => handleScrollTo(e, 'services')} 
-                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                      className={`relative group px-3.5 py-1.5 rounded-xl transition-all duration-300 ${
                         currentSection === 'services'
                           ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
                           : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
@@ -1342,28 +1342,12 @@ export default function App() {
                         currentSection === 'services' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
                       }`} />
                     </a>
-                    <a 
-                      href="#projects" 
-                      onClick={(e) => handleScrollTo(e, 'projects')} 
-                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 ${
-                        currentSection === 'projects'
-                          ? 'text-[#F7941D] bg-[#F7941D]/10 font-bold'
-                          : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
-                      }`}
-                    >
-                      <EditableText textKey="nav.projects" fallbackText="المشاريع">
-                        <span>{t('nav.projects')}</span>
-                      </EditableText>
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-[#F7941D] to-amber-400 rounded-full transition-all duration-300 ${
-                        currentSection === 'projects' ? 'w-2/3' : 'w-0 group-hover:w-2/3'
-                      }`} />
-                    </a>
                     <button 
                       onClick={() => {
                         trackCTA('Header Portfolio Link', 'Header Nav', { view: 'portfolio' });
                         setActiveView('portfolio');
                       }} 
-                      className={`relative group px-3 py-1.5 rounded-xl transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                      className={`relative group px-3.5 py-1.5 rounded-xl transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
                         (activeView as string) === 'portfolio'
                           ? 'text-[#F7941D] bg-[#F7941D]/10'
                           : 'text-gray-300 hover:text-white hover:bg-white/[0.05]'
@@ -1383,11 +1367,11 @@ export default function App() {
                         trackCTA('Header Contact CTA', 'Header Nav', { target: 'contact' });
                         handleScrollTo(e, 'contact');
                       }} 
-                      className={`relative group overflow-hidden px-4 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ms-2 ${
+                      className={`relative group overflow-hidden px-5 py-1.5 sm:py-2 rounded-full font-bold whitespace-nowrap text-xs md:text-sm text-white bg-gradient-to-r from-[#F7941D] via-amber-500 to-[#F7941D] bg-[length:200%_auto] hover:bg-right transition-all duration-500 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center ms-2 ${
                         currentSection === 'contact' ? 'ring-2 ring-[#F7941D] ring-offset-2 ring-offset-[#180C2E]' : ''
                       }`}
                     >
-                      <EditableText textKey="nav.contact" fallbackText="تواصل معي">
+                      <EditableText textKey="nav.contact" fallbackText="تواصل">
                         <span>{t('nav.contact')}</span>
                       </EditableText>
                     </a>
@@ -1480,8 +1464,26 @@ export default function App() {
                       </div>
 
                       {/* Navigation Items */}
-                      <div className="space-y-2">
-                        <button
+                      <motion.div 
+                        initial="hidden"
+                        animate="show"
+                        variants={{
+                          hidden: { opacity: 0 },
+                          show: {
+                            opacity: 1,
+                            transition: {
+                              staggerChildren: 0.07,
+                              delayChildren: 0.12,
+                            }
+                          }
+                        }}
+                        className="space-y-2"
+                      >
+                        <motion.button
+                          variants={{
+                            hidden: { opacity: 0, y: 12, x: dir === 'rtl' ? 12 : -12 },
+                            show: { opacity: 1, y: 0, x: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+                          }}
                           onClick={() => {
                             setActiveView('home');
                             setMobileMenuOpen(false);
@@ -1493,9 +1495,13 @@ export default function App() {
                         >
                           <Home size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{dir === 'rtl' ? 'الرئيسية' : 'Home'}</span>
-                        </button>
+                        </motion.button>
 
-                        <a
+                        <motion.a
+                          variants={{
+                            hidden: { opacity: 0, y: 12, x: dir === 'rtl' ? 12 : -12 },
+                            show: { opacity: 1, y: 0, x: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+                          }}
                           href="#about"
                           onClick={(e) => {
                             handleScrollTo(e, 'about');
@@ -1505,9 +1511,13 @@ export default function App() {
                         >
                           <User size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{t('nav.about')}</span>
-                        </a>
+                        </motion.a>
 
-                        <a
+                        <motion.a
+                          variants={{
+                            hidden: { opacity: 0, y: 12, x: dir === 'rtl' ? 12 : -12 },
+                            show: { opacity: 1, y: 0, x: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+                          }}
                           href="#services"
                           onClick={(e) => {
                             handleScrollTo(e, 'services');
@@ -1517,21 +1527,13 @@ export default function App() {
                         >
                           <Briefcase size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{t('nav.services')}</span>
-                        </a>
+                        </motion.a>
 
-                        <a
-                          href="#projects"
-                          onClick={(e) => {
-                            handleScrollTo(e, 'projects');
-                            setMobileMenuOpen(false);
+                        <motion.button
+                          variants={{
+                            hidden: { opacity: 0, y: 12, x: dir === 'rtl' ? 12 : -12 },
+                            show: { opacity: 1, y: 0, x: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
                           }}
-                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-white/[0.03] hover:bg-[#F7941D]/15 text-gray-200 hover:text-white font-medium text-sm transition-all duration-200 ${dir === 'rtl' ? 'text-right' : 'text-left'} cursor-pointer group`}
-                        >
-                          <Folder size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
-                          <span className="grow">{t('nav.projects')}</span>
-                        </a>
-
-                        <button
                           onClick={() => {
                             setActiveView('portfolio');
                             setMobileMenuOpen(false);
@@ -1540,9 +1542,13 @@ export default function App() {
                         >
                           <Sparkles size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{t('nav.portfolio')}</span>
-                        </button>
+                        </motion.button>
 
-                        <button
+                        <motion.button
+                          variants={{
+                            hidden: { opacity: 0, y: 12, x: dir === 'rtl' ? 12 : -12 },
+                            show: { opacity: 1, y: 0, x: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+                          }}
                           onClick={() => {
                             setActiveView('404');
                             setMobileMenuOpen(false);
@@ -1551,23 +1557,28 @@ export default function App() {
                         >
                           <Compass size={18} className="text-[#F7941D] group-hover:scale-110 transition-transform shrink-0" />
                           <span className="grow">{dir === 'rtl' ? 'صفحة 404' : '404 Page'}</span>
-                        </button>
-                      </div>
+                        </motion.button>
 
-                      {/* Contact CTA Button */}
-                      <div className="mt-6 pt-4 border-t border-white/10">
-                        <a
-                          href="#contact"
-                          onClick={(e) => {
-                            handleScrollTo(e, 'contact');
-                            setMobileMenuOpen(false);
+                        {/* Contact CTA Button */}
+                        <motion.div
+                          variants={{
+                            hidden: { opacity: 0, y: 12 },
+                            show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
                           }}
-                          className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 active:scale-98"
+                          className="pt-2 border-t border-white/10"
                         >
-                          <MessageCircle size={18} />
-                          <span>{t('nav.contact')}</span>
-                        </a>
-                      </div>
+                          <a
+                            href="#contact"
+                            onClick={(e) => {
+                              handleScrollTo(e, 'contact');
+                              setMobileMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7941D] to-[#E06C00] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 active:scale-98"
+                          >
+                            <span>{t('nav.contact')}</span>
+                          </a>
+                        </motion.div>
+                      </motion.div>
                     </div>
 
                     {/* Drawer Footer */}
@@ -1654,8 +1665,7 @@ export default function App() {
                 }}
                 className="relative group mx-auto"
               >
-                {/* Radial backlight glow behind 3D avatar */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#F7941D]/30 via-[#6C4EA2]/20 to-transparent blur-2xl sm:blur-3xl rounded-full transform scale-90 -z-10 pointer-events-none" />
+                {/* Clean avatar container without backlights */}
 
                 {(() => {
                   const profileImg = t('hero.profileImage') || "https://i.ibb.co/JWtLY2cB/Rectangle-40443-81459862.webp";
@@ -1781,6 +1791,9 @@ export default function App() {
             </FadeIn>
           </div>
         </div>
+
+        {/* Smooth Gradient Divider fading Hero seamlessly into the section below */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 sm:h-48 md:h-64 bg-gradient-to-b from-transparent via-[#180C2E]/60 via-60% to-[#1D1031] pointer-events-none z-20" />
       </section>
 
       {/* 2. MARQUEE SECTION */}
@@ -1916,6 +1929,9 @@ export default function App() {
             </a>
           </div>
         </div>
+
+        {/* Soft bottom gradient overlay seamlessly blending into Services section */}
+        <div className="absolute bottom-0 left-0 w-full h-[25vh] bg-gradient-to-b from-transparent via-[#1D1031]/50 to-[#1D1031] pointer-events-none z-10" />
       </section>
 
       {/* 4. SERVICES SECTION */}

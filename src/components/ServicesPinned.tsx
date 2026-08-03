@@ -388,19 +388,20 @@ export default function ServicesPinnedSection() {
       }}
       className={`relative min-h-[450vh] sm:min-h-[550vh] md:min-h-[750vh] lg:min-h-[850vh] ${dir === 'rtl' ? 'text-right' : 'text-left'}`}
     >
+      {/* Top transition gradient overlay from About section color (#1D1031) for seamless, invisible divider */}
+      <div className="absolute top-0 left-0 w-full h-[35vh] sm:h-[45vh] bg-gradient-to-b from-[#1D1031] via-[#1D1031]/80 to-transparent pointer-events-none z-10" />
+
       {/* Bottom transition gradient to Projects section for flawless color merging */}
       <div className="absolute bottom-0 left-0 w-full h-[40vh] bg-gradient-to-t from-[#1D1031] via-[#1D1031]/60 to-transparent pointer-events-none z-10" />
 
-      {/* Sticky viewport frame with premium spring lift/entrance animation */}
+      {/* Sticky viewport frame with smooth, subtle entrance animation */}
       <motion.div 
-        initial={{ opacity: 0, y: 150, scale: 0.93 }}
+        initial={{ opacity: 0, y: 30, scale: 0.98 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: "-10%" }}
         transition={{ 
-          type: "spring", 
-          stiffness: 65, 
-          damping: 14,
-          mass: 1.1
+          duration: 0.8,
+          ease: [0.16, 1, 0.3, 1]
         }}
         className="sticky top-0 h-screen w-full flex flex-col justify-between overflow-hidden py-4 sm:py-6 md:py-8 px-4 sm:px-8 md:px-12 lg:px-16 z-20"
       >

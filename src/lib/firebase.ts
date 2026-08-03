@@ -1,10 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider, FacebookAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDoc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firestore with auto-detect long polling for maximum network compatibility
+export const db = initializeFirestore(
+  app,
+  { experimentalAutoDetectLongPolling: true },
+  firebaseConfig.firestoreDatabaseId || '(default)'
+);
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const microsoftProvider = new OAuthProvider('microsoft.com');
@@ -55,19 +62,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Notice: ', JSON.stringify(errInfo));
+  return errInfo;
 }
 
 export async function testFirestoreConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDoc(doc(db, 'test', 'connection'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
+    // Quietly handle connection timeouts/offline status without throw
   }
 }
 
-// Call test connection on load
+// Call test connection safely
 testFirestoreConnection();

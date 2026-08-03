@@ -129,7 +129,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.services': 'الخدمات',
     'nav.projects': 'مشاريعي',
     'nav.portfolio': 'معرض الأعمال',
-    'nav.contact': 'تواصل معي',
+    'nav.contact': 'تواصل',
     'nav.homeTitle': 'الرئيسية',
     'nav.logoUrl': '',
 
@@ -263,7 +263,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.services': 'Services',
     'nav.projects': 'Projects',
     'nav.portfolio': 'Portfolio',
-    'nav.contact': 'Contact Me',
+    'nav.contact': 'Contact',
     'nav.homeTitle': 'Home',
     'nav.logoUrl': '',
 
